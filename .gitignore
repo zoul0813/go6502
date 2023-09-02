@@ -1,0 +1,8 @@
+*.dbg
+*.labels.txt
+*.map.txt
+*.bin
+*.o
+
+go6502
+tmp/
