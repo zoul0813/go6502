@@ -1,0 +1,60 @@
+# OpCodes
+
+List of high level opcodes, and whether they've been implemented
+
+- [x] ADC - add with carry
+- [x] AND - and (with accumulator)
+- [x] ASL - arithmetic shift left
+- [X] BCC - branch on carry clear
+- [X] BCS - branch on carry set
+- [X] BEQ - branch on equal (zero set)
+- [x] BIT - bit test
+- [X] BMI - branch on minus (negative set)
+- [X] BNE - branch on not equal (zero clear)
+- [X] BPL - branch on plus (negative clear)
+- [x] BRK - break / interrupt
+- [X] BVC - branch on overflow clear
+- [X] BVS - branch on overflow set
+- [x] CLC - clear carry
+- [x] CLD - clear decimal
+- [x] CLI - clear interrupt disable
+- [x] CLV - clear overflow
+- [ ] CMP - compare (with accumulator)
+- [ ] CPX - compare with X
+- [ ] CPY - compare with Y
+- [x] DEC - decrement
+- [x] DEX - decrement X
+- [x] DEY - decrement Y
+- [ ] EOR - exclusive or (with accumulator)
+- [x] INC - increment
+- [x] INX - increment X
+- [x] INY - increment Y
+- [x] JMP - jump
+- [ ] JSR - jump subroutine
+- [x] LDA - load accumulator
+- [x] LDX - load X
+- [x] LDY - load Y
+- [x] LSR - logical shift right
+- [x] NOP - no operation
+- [ ] ORA - or with accumulator
+- [x] PHA - push accumulator
+- [x] PHP - push processor status (SR)
+- [x] PLA - pull accumulator
+- [x] PLP - pull processor status (SR)
+- [x] ROL - rotate left
+- [x] ROR - rotate right
+- [ ] RTI - return from interrupt
+- [ ] RTS - return from subroutine
+- [x] SBC - subtract with carry
+- [x] SEC - set carry
+- [x] SED - set decimal
+- [x] SEI - set interrupt disable
+- [x] STA - store accumulator
+- [x] STX - store X
+- [x] STY - store Y
+- [x] TAX - transfer accumulator to X
+- [x] TAY - transfer accumulator to Y
+- [x] TSX - transfer stack pointer to X
+- [x] TXA - transfer X to accumulator
+- [x] TXS - transfer X to stack pointer
+- [x] TYA - transfer Y to accumulator

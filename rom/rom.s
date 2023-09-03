@@ -16,13 +16,11 @@ word1:
 
 reset:
 :
-  LDA #$01
-  LDX #$00
+  LDA #$0F
 :
-  STA $00,x
-  SBC $00,x
-  INC $00,x
-  INC $00,x
-  INX
-  ADC $00,x
+  ADC #$01
+  BEQ :--
+  ADC #$01
+  ADC #$01
+  ADC #$01
   JMP :-

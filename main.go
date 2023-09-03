@@ -78,6 +78,14 @@ func main() {
 			fallthrough
 		case "quit":
 			os.Exit(0)
+		case "test":
+			// special command for just doing quick tests
+			// code is volatile
+			b := 0xFC
+			var c int8 = int8(b - 127)
+			var d int8 = int8(b)
+			fmt.Printf("%02x %02x %08b %v %v\n", b, c, c, c, d)
+			continue
 		}
 
 		fmt.Printf("\n")
@@ -101,7 +109,86 @@ func main() {
 			fmt.Printf("%04x (Indirect)", word)
 			addr, _ := rom.GetWord(word)
 			cpu.PC = addr
-
+		case CPU.BPL:
+			// branch on plus
+			fmt.Printf("I: BPL ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			neg := CPU.BitSet(CPU.Negative, uint16(cpu.Status))
+			if !neg {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BMI:
+			// branch on minus
+			fmt.Printf("I: BMI ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			neg := CPU.BitSet(CPU.Negative, uint16(cpu.Status))
+			if neg {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BVC:
+			// branch on overflow clear
+			fmt.Printf("I: BVC ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			overflow := CPU.BitSet(CPU.Overflow, uint16(cpu.Status))
+			if !overflow {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BVS:
+			// branch on overflow set
+			fmt.Printf("I: BVS ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			overflow := CPU.BitSet(CPU.Overflow, uint16(cpu.Status))
+			if overflow {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BCC:
+			// branch on carry clear
+			fmt.Printf("I: BCC ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			carry := CPU.BitSet(CPU.Carry, uint16(cpu.Status))
+			if !carry {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BCS:
+			// branch on carry set
+			fmt.Printf("I: BCS ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			carry := CPU.BitSet(CPU.Carry, uint16(cpu.Status))
+			if carry {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BNE:
+			// branch on not equal
+			fmt.Printf("I: BNE ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			zero := CPU.BitSet(CPU.Zero, uint16(cpu.Status))
+			if !zero {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
+		case CPU.BEQ:
+			// branch on equal
+			fmt.Printf("I: BEQ ")
+			rel, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			zero := CPU.BitSet(CPU.Zero, uint16(cpu.Status))
+			if zero {
+				var offset int8 = int8(rel)
+				cpu.PC += uint16(offset)
+			}
 		// Misc
 		case CPU.BRK: // TODO: NMI
 			// break

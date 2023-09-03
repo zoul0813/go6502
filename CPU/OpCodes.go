@@ -28,7 +28,7 @@ const (
 	ORA_A  = 0x0D
 	ASL_A  = 0x0E
 
-	BPL_R   = 0x10
+	BPL     = 0x10
 	ORA_INY = 0x11
 	ORA_ZPX = 0x15
 	ASL_ZPX = 0x16
@@ -48,6 +48,7 @@ const (
 	ROL_A   = 0x2E
 	ROL_ZP  = 0x26
 
+	BMI     = 0x30
 	AND_INY = 0x31
 	AND_ZPX = 0x35
 	ROL_ZPX = 0x36
@@ -61,6 +62,7 @@ const (
 	LSR    = 0x4A
 	LSR_A  = 0x4E
 
+	BVC     = 0x50
 	LSR_ZPX = 0x56
 	CLI     = 0x58
 	LSR_AX  = 0x5E
@@ -75,6 +77,7 @@ const (
 	ADC_A   = 0x6D
 	ROR_A   = 0x6E
 
+	BVS     = 0x70
 	ADC_INY = 0x71
 	ADC_ZPX = 0x75
 	ROR_ZPX = 0x76
@@ -93,6 +96,7 @@ const (
 	STA_A   = 0x8D
 	STX_A   = 0x8E
 
+	BCC     = 0x90
 	STA_INY = 0x91
 	STY_ZPX = 0x94
 	STA_ZPX = 0x95
@@ -118,7 +122,7 @@ const (
 	LDX_A  = 0xAE
 
 	TSX     = 0xBA
-	BCS_R   = 0xB0
+	BCS     = 0xB0
 	LDA_INY = 0xB1
 	LDY_ZPX = 0xB4
 	LDA_ZPX = 0xB5
@@ -134,6 +138,7 @@ const (
 	INY    = 0xC8
 	DEC_A  = 0xCE
 
+	BNE     = 0xD0
 	DEC_ZPX = 0xD6
 	CLD     = 0xD8
 	DEC_AX  = 0xDE
@@ -147,6 +152,7 @@ const (
 	SBC_A   = 0xED
 	INC_A   = 0xEE
 
+	BEQ     = 0xF0
 	SBC_INY = 0xF1
 	SBC_ZPX = 0xF5
 	INC_ZPX = 0xF6
