@@ -38,14 +38,34 @@ func main() {
 		0b00000000, //Status
 	)
 
-	cpu.Debug()
-
 	word, _ := rom.GetWord(cpu.PC)
 	cpu.PC = word
 
 	cpu.Debug()
 
 	for {
+		fmt.Printf("%%: ")
+		var input string
+		fmt.Scanln(&input)
+		switch input {
+		case "zp":
+			rom.Dump(0x0000, 0xff)
+			continue
+			// rom.Dump(0xfff0, 0x0f)
+			// rom.Dump(0x8000, 0xff)
+		case "help":
+			fmt.Printf("Press enter to cycle the next clock tick\n")
+			fmt.Printf("\n")
+			fmt.Printf("zp = mem dump of zero page\n")
+			continue
+		case "q":
+			fallthrough
+		case "quit":
+			os.Exit(0)
+
+		}
+
+		fmt.Printf("\n")
 
 		b, _ := rom.Get(cpu.PC)
 		var instr CPU.OpCode = CPU.OpCode(b)
@@ -468,10 +488,6 @@ func main() {
 		}
 
 		fmt.Print("\n") // always end the instructions debug lines
-
 		cpu.Debug()
-		fmt.Printf("[Enter] for next Clock Tick")
-		var input string
-		fmt.Scanln(&input)
 	}
 }
