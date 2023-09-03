@@ -111,15 +111,127 @@ func main() {
 		case CPU.NOP:
 			fmt.Printf("I: NOP")
 		// Add (ADC)
-		case CPU.ADC_I: // add with carry, immediate
-		case CPU.ADC_ZP: // add with carry, zero page
-		case CPU.ADC_ZPX: // add with carry, zero page, x
-		case CPU.ADC_A: // add with carry, absolute
-		case CPU.ADC_AX: // add with carry, absolute, x
-		case CPU.ADC_AY: // add with carry, absolute, y
-		case CPU.ADC_INX: // add with carry, indirect, x
-		case CPU.ADC_INY: // add with carry, indirect, y
+		case CPU.ADC_I:
+			// add with carry, immediate
+			fmt.Printf("I: ADC ")
+			v, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (Immediate)", v)
+			a := cpu.A
+			cpu.A += v
 
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_ZP:
+			// add with carry, zero page
+			fmt.Printf("I: ADC ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP)", zp)
+			v, _ := rom.Get(uint16(zp))
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_ZPX:
+			// add with carry, zero page, x
+			fmt.Printf("I: ADC ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP, X)", zp)
+			v, _ := rom.Get(uint16(zp + cpu.X))
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_A:
+			// add with carry, absolute
+			fmt.Printf("I: ADC ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS)", addr)
+			v, _ := rom.Get(addr)
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_AX:
+			// add with carry, absolute, x
+			fmt.Printf("I: ADC ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS, X)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.X))
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_AY:
+			// add with carry, absolute, y
+			fmt.Printf("I: ADC ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS, Y)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_INX:
+			// add with carry, indirect, x
+			fmt.Printf("I: ADC ")
+			word, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			addr, _ := rom.GetWord(word)
+			fmt.Printf("%02x (Indirect, X)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.X))
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.ADC_INY:
+			// add with carry, indirect, y
+			fmt.Printf("I: ADC ")
+			word, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			addr, _ := rom.GetWord(word)
+			fmt.Printf("%02x (Indirect, Y)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			cpu.A += v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
 		// AND
 		case CPU.AND_I:
 			// and with a

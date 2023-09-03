@@ -16,15 +16,11 @@ word1:
 
 reset:
 :
-  CLV
-  LDA #%10101010
-  NOP
-  NOP
-  STA $00
-  LDA #%01010101
-  BIT $00
-  NOP
-  BRK
-  LDA #$ef
-  NOP
+  LDA #$01
+  LDX #$00
+:
+  STA $00,x
+  ADC $00,x
+  INC $00,x
+  INX
   JMP :-
