@@ -15,11 +15,16 @@ word1:
 .segment "CODE"
 
 reset:
-  LDX #$11
-  LDA #$22
 :
-  TXS
-  PHA
-  TSX
-  PLA
+  CLV
+  LDA #%10101010
+  NOP
+  NOP
+  STA $00
+  LDA #%01010101
+  BIT $00
+  NOP
+  BRK
+  LDA #$ef
+  NOP
   JMP :-

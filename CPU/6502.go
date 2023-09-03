@@ -49,6 +49,35 @@ type CPU struct {
 	Status uint8
 }
 
+// Utility Functions
+
+const (
+	Bit0 = 0b00000001
+	Bit1 = 0b00000010
+	Bit2 = 0b00000100
+	Bit3 = 0b00001000
+	Bit4 = 0b00010000
+	Bit5 = 0b00100000
+	Bit6 = 0b01000000
+	Bit7 = 0b10000000
+)
+
+func BitSet(bit byte, value uint16) bool {
+	b := value & uint16(bit)
+	return b != 0
+}
+
+func IsNegative(value uint8) bool {
+	n := value & 0b10000000
+	return n != 0
+}
+
+func IsOverflow(prev uint8, current uint8) bool {
+	p7 := BitSet(Bit7, uint16(prev))
+	c7 := BitSet(Bit7, uint16(current))
+	return p7 == c7
+}
+
 func New(
 	PC uint16,
 	SP uint8,
@@ -82,17 +111,12 @@ func (o *CPU) SetStatus(flag uint8, value bool) {
 	o.Status = status
 }
 
-func (o *CPU) IsNegative(value uint8) bool {
-	n := value & 0b10000000
-	return n != 0
-}
-
 func (o *CPU) Debug() {
 	// fmt.Printf("State: %v", o)
 	fmt.Print("\n\nPC    SP    A    X    Y    Status   \n")
 	fmt.Print("---------------------------NV-BDIZC-\n")
 	//          PC    SP    A      X      Y      Status
-	fmt.Printf("%04x  %04x  %02x   %02x   %02x   %08b\n\n\n",
+	fmt.Printf("%04x  %04x  %02x   %02x   %02x   %08b\n\n",
 		o.PC,
 		o.SP,
 		o.A,
@@ -100,4 +124,14 @@ func (o *CPU) Debug() {
 		o.Y,
 		o.Status,
 	)
+}
+
+func (o *CPU) DebugBits() {
+	fmt.Printf("      PC: %016b\n", o.PC)
+	fmt.Printf("      SP: %08b\n", o.SP)
+	fmt.Printf("       A: %08b\n", o.A)
+	fmt.Printf("       X: %08b\n", o.X)
+	fmt.Printf("       Y: %08b\n", o.Y)
+	fmt.Printf(" Status : %08b\n", o.Status)
+	fmt.Print("          NV-BDIZC\n\n")
 }
