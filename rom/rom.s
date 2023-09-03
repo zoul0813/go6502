@@ -15,27 +15,11 @@ word1:
 .segment "CODE"
 
 reset:
-  LDA #$20
-  STA $00
-  TAX
-  LDA #$10
-  STA $00, x
-  LDY $00
-  LDX $00, y
-  LDX byte1, y         ; $47
-  TYA
-  TAX
-  INC byte1, x
-  LDA byte1, y         ; $48 (it was incremented)
-  LDX #$05
-  LDY byte1, x         ; $47
-  TXA
-  LDA byte1,x
-  TAX
-  INX
-  INX
-  TXA
-  TAY
-  INY
-  TYA
-  JMP reset
+  LDX #$11
+  LDA #$22
+:
+  TXS
+  PHA
+  TSX
+  PLA
+  JMP :-

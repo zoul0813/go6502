@@ -132,13 +132,13 @@ func (o *Memory) Dump(addr uint16, size uint16) {
 	}
 
 	fmt.Printf("Memory Dump (%07x:%07x)\n", addr, addr+size)
-	fmt.Printf("------- ---- ---- ---- ---- ---- ---- ---- ----\n")
+	fmt.Printf(Colorize(DebugColor, "%s", "------- ---- ---- ---- ---- ---- ---- ---- ----\n"))
 	// fmt.Printf("0000000 2aa5 3818 0000 0000 0000 0000 0000 0000")
 	var lcv int = 0
 	var i uint16 = addr
 	var end = addr + size
 	for i < end {
-		fmt.Printf("%07x ", i)
+		fmt.Printf(Colorize(AddrColor, "%07x ", i))
 		for w := 0; w < 8; w++ {
 			// fmt.Print("ww")
 			w1, _ := o.Get(i)
@@ -148,12 +148,34 @@ func (o *Memory) Dump(addr uint16, size uint16) {
 				i++
 			}
 
-			fmt.Printf("%02x%02x ", w1, w2)
+			// fmt.Printf("%02x%02x ", w1, w2)
+			w1c := HiColor
+			if w1 == 0 {
+				w1c = EmptyColor
+			}
+			w2c := LoColor
+			if w2 == 0 {
+				w2c = EmptyColor
+			}
+			fmt.Printf("%s%s ", Colorize(w1c, "%02x", w1), Colorize(w2c, "%02x", w2))
 			lcv++
 		}
 
 		fmt.Printf("\n")
 	}
-	fmt.Printf("------- ---- ---- ---- ---- ---- ---- ---- ----\n")
+	fmt.Printf(Colorize(DebugColor, "%s", "------- ---- ---- ---- ---- ---- ---- ---- ----\n"))
 	fmt.Printf("%v bytes, %v loops, (%07x:%07x):%07x\n\n", size+1, lcv, addr, end, i)
+}
+
+const (
+	EmptyColor = "\033[1;90m%s\033[0m"
+	HiColor    = "\033[1;31m%s\033[0m"
+	LoColor    = "\033[1;91m%s\033[0m"
+	AddrColor  = "\033[1;32m%s\033[0m"
+	DebugColor = "\033[0;37m%s\033[0m"
+)
+
+func Colorize(color string, format string, v any) string {
+	f := fmt.Sprintf(format, v)
+	return fmt.Sprintf(color, f)
 }
