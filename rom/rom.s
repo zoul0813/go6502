@@ -5,20 +5,37 @@
 
 .segment "DATA"
 byte1:
-  .byte $42
+  .byte $42, $43, $44, $45, $46, $47, $48, $49, $50, $51
 byte2:
   .byte $20
 word1:
   .word $0420
+  .byte "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed pulvinar quam justo. Phasellus nec magna vulputate, lobortis justo non, rhoncus tortor. In dictum ac neque non mattis. Donec facilisis massa eu dolor aliquet, a sodales nulla condimentum. Proin viverra pretium euismod. Duis pretium sodales lacus ut pretium."
 
 .segment "CODE"
 
 reset:
-  LDA byte1
+  LDA #$20
+  STA $00
+  TAX
+  LDA #$10
+  STA $00, x
+  LDY $00
+  LDX $00, y
+  LDX byte1, y         ; $47
+  TYA
+  TAX
+  INC byte1, x
+  LDA byte1, y         ; $48 (it was incremented)
+  LDX #$05
+  LDY byte1, x         ; $47
+  TXA
+  LDA byte1,x
+  TAX
   INX
+  INX
+  TXA
+  TAY
   INY
-  LDA #$69
-  SEC
-  LDA byte2
-  CLC
+  TYA
   JMP reset
