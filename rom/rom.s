@@ -15,12 +15,18 @@ word1:
 .segment "CODE"
 
 reset:
+  LDA #$04
+loop:
+  LDX #$0F
+  LDY #$08
 :
-  LDA #$0F
+  CMP #$04
+  BNE :-
 :
-  ADC #$01
-  BEQ :--
-  ADC #$01
-  ADC #$01
-  ADC #$01
-  JMP :-
+  CPX #$0F
+  BNE :-
+:
+  CPY #$08
+  BNE :-
+  LDA #$FF
+  JMP loop

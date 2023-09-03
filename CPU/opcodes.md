@@ -5,23 +5,23 @@ List of high level opcodes, and whether they've been implemented
 - [x] ADC - add with carry
 - [x] AND - and (with accumulator)
 - [x] ASL - arithmetic shift left
-- [X] BCC - branch on carry clear
-- [X] BCS - branch on carry set
-- [X] BEQ - branch on equal (zero set)
+- [x] BCC - branch on carry clear
+- [x] BCS - branch on carry set
+- [x] BEQ - branch on equal (zero set)
 - [x] BIT - bit test
-- [X] BMI - branch on minus (negative set)
-- [X] BNE - branch on not equal (zero clear)
-- [X] BPL - branch on plus (negative clear)
+- [x] BMI - branch on minus (negative set)
+- [x] BNE - branch on not equal (zero clear)
+- [x] BPL - branch on plus (negative clear)
 - [x] BRK - break / interrupt
-- [X] BVC - branch on overflow clear
-- [X] BVS - branch on overflow set
+- [x] BVC - branch on overflow clear
+- [x] BVS - branch on overflow set
 - [x] CLC - clear carry
 - [x] CLD - clear decimal
 - [x] CLI - clear interrupt disable
 - [x] CLV - clear overflow
-- [ ] CMP - compare (with accumulator)
-- [ ] CPX - compare with X
-- [ ] CPY - compare with Y
+- [x] CMP - compare (with accumulator)
+- [x] CPX - compare with X
+- [x] CPY - compare with Y
 - [x] DEC - decrement
 - [x] DEX - decrement X
 - [x] DEY - decrement Y

@@ -442,6 +442,175 @@ func main() {
 			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
 			cpu.SetStatus(CPU.Zero, cpu.A == 0)
 			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+
+		// Compare (A, X, Y)
+		case CPU.CMP:
+			// compare accumulator
+			fmt.Printf("I: CMP ")
+			v, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (Immediate)", v)
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_ZP:
+			// compare accumulator, zero page
+			fmt.Printf("I: CMP ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP)", zp)
+			v, _ := rom.Get(uint16(zp))
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_ZPX:
+			// compare accumulator, zero page, x
+			fmt.Printf("I: CMP ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP, X)", zp)
+			v, _ := rom.Get(uint16(zp + cpu.X))
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_A:
+			// compare accumulator, absolute
+			fmt.Printf("I: CMP ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS)", addr)
+			v, _ := rom.Get(addr)
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_AX:
+			// compare accumulator, absolute, x
+			fmt.Printf("I: CMP ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS, X)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.X))
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_AY:
+			// compare accumulator, absolute, y
+			fmt.Printf("I: CMP ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS, Y)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_INX:
+			// compare accumulator, indirect, x
+			fmt.Printf("I: CMP ")
+			word, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			addr, _ := rom.GetWord(word)
+			fmt.Printf("%02x (Indirect, X)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.X))
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CMP_INY:
+			// compare accumulator, indirect y
+			fmt.Printf("I: CMP ")
+			word, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			addr, _ := rom.GetWord(word)
+			fmt.Printf("%02x (Indirect, Y)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.A == v)
+			cpu.SetStatus(CPU.Carry, cpu.A >= v)
+		case CPU.CPX:
+			// compare x
+			fmt.Printf("I: CPX ")
+			v, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (Immediate)", v)
+			a := cpu.X
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.X == v)
+			cpu.SetStatus(CPU.Carry, cpu.X >= v)
+		case CPU.CPX_ZP:
+			// compare x, zero page
+			fmt.Printf("I: CPX ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP)", zp)
+			v, _ := rom.Get(uint16(zp))
+			a := cpu.X
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.X == v)
+			cpu.SetStatus(CPU.Carry, cpu.X >= v)
+		case CPU.CPX_A:
+			// compare x, absolute
+			fmt.Printf("I: CPX ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS)", addr)
+			v, _ := rom.Get(addr)
+			a := cpu.X
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.X == v)
+			cpu.SetStatus(CPU.Carry, cpu.X >= v)
+		case CPU.CPY:
+			// compare y
+			fmt.Printf("I: CPY ")
+			v, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (Immediate)", v)
+			a := cpu.Y
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.Y == v)
+			cpu.SetStatus(CPU.Carry, cpu.Y >= v)
+		case CPU.CPY_ZP:
+			// compare x, zero page
+			fmt.Printf("I: CPY ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP)", zp)
+			v, _ := rom.Get(uint16(zp))
+			a := cpu.Y
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.Y == v)
+			cpu.SetStatus(CPU.Carry, cpu.Y >= v)
+		case CPU.CPY_A:
+			// compare x, absolute
+			fmt.Printf("I: CPY ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS)", addr)
+			v, _ := rom.Get(addr)
+			a := cpu.Y
+			r := a - v // actually do the math, so we can determine if it's negative
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(r))
+			cpu.SetStatus(CPU.Zero, cpu.Y == v)
+			cpu.SetStatus(CPU.Carry, cpu.Y >= v)
 		// AND
 		case CPU.AND_I:
 			// and with a
