@@ -20,7 +20,9 @@ reset:
   LDX #$00
 :
   STA $00,x
-  ADC $00,x
+  SBC $00,x
+  INC $00,x
   INC $00,x
   INX
+  ADC $00,x
   JMP :-

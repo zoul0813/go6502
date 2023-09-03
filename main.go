@@ -232,6 +232,129 @@ func main() {
 			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
 			cpu.SetStatus(CPU.Zero, cpu.A == 0)
 			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		// Subtract (SBC)
+		case CPU.SBC:
+			// subtract with carry, immediate
+			fmt.Printf("I: SBC ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP)", zp)
+			v, _ := rom.Get(uint16(zp))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_ZP:
+			// subtract with carry, zero page
+			fmt.Printf("I: SBC ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP)", zp)
+			v, _ := rom.Get(uint16(zp))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_ZPX:
+			// subtract with carry, zero page, x
+			fmt.Printf("I: SBC ")
+			zp, _ := rom.Get(cpu.PC)
+			cpu.PC++
+			fmt.Printf("%02x (ZP, X)", zp)
+			v, _ := rom.Get(uint16(zp + cpu.X))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_A:
+			// subtract with carry, absolute
+			fmt.Printf("I: SBC ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS)", addr)
+			v, _ := rom.Get(addr)
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_AX:
+			// subtract with carry, absolute, x
+			fmt.Printf("I: SBC ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS, X)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.X))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_AY:
+			// subtract with carry, absolute, y
+			fmt.Printf("I: SBC ")
+			addr, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			fmt.Printf("%02x (ABS, Y)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_INX:
+			// subtract with carry, indirect, x
+			fmt.Printf("I: SBC ")
+			word, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			addr, _ := rom.GetWord(word + uint16(cpu.X))
+			fmt.Printf("%02x (Indirect, X)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
+		case CPU.SBC_INY:
+			// subtract with carry, indirect, y
+			fmt.Printf("I: SBC ")
+			word, _ := rom.GetWord(cpu.PC)
+			cpu.PC += 2
+			addr, _ := rom.GetWord(word + uint16(cpu.Y))
+			fmt.Printf("%02x (Indirect, Y)", addr)
+			v, _ := rom.Get(addr + uint16(cpu.Y))
+			a := cpu.A
+			cpu.A -= v
+
+			// N V Z C
+			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
+			cpu.SetStatus(CPU.Overflow, CPU.IsOverflow(a, cpu.A))
+			cpu.SetStatus(CPU.Zero, cpu.A == 0)
+			cpu.SetStatus(CPU.Carry, CPU.BitSet(CPU.Bit7, uint16(cpu.A)))
 		// AND
 		case CPU.AND_I:
 			// and with a
