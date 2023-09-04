@@ -648,9 +648,8 @@ func main() {
 			// and with a, absolute
 			fmt.Printf("I: AND ")
 			addr, _ := rom.GetWord(cpu.PC)
-			cpu.PC++
-			fmt.Printf("%02x (ABS)", addr)
 			cpu.PC += 2
+			fmt.Printf("%02x (ABS)", addr)
 			v, _ := rom.Get(addr)
 			cpu.A &= v
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -661,7 +660,6 @@ func main() {
 			addr, _ := rom.GetWord(cpu.PC)
 			cpu.PC += 2
 			fmt.Printf("%02x (ABS, X)", addr)
-			cpu.PC += 2
 			v, _ := rom.Get(addr + uint16(cpu.X))
 			cpu.A &= v
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -672,7 +670,6 @@ func main() {
 			addr, _ := rom.GetWord(cpu.PC)
 			cpu.PC += 2
 			fmt.Printf("%02x (ABS, Y)", addr)
-			cpu.PC += 2
 			v, _ := rom.Get(addr + uint16(cpu.Y))
 			cpu.A &= v
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -684,7 +681,6 @@ func main() {
 			cpu.PC++
 			fmt.Printf("%02x (Indirect, X)", zp)
 			addr, _ := rom.GetWord(zp)
-			cpu.PC += 2
 			v, _ := rom.Get(addr + uint16(cpu.X))
 			cpu.A &= v
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -696,7 +692,6 @@ func main() {
 			cpu.PC++
 			fmt.Printf("%02x (Indirect, Y)", zp)
 			addr, _ := rom.GetWord(uint16(zp))
-			cpu.PC += 2
 			v, _ := rom.Get(addr + uint16(cpu.Y))
 			cpu.A &= v
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -913,7 +908,8 @@ func main() {
 			zp, _ := rom.Get(cpu.PC)
 			cpu.PC++
 			fmt.Printf("%04x (Indirect, X)", zp)
-			addr := uint16(zp + cpu.X)
+			addr, _ := rom.GetWord(uint16(zp))
+			addr += uint16(cpu.X)
 			fmt.Printf(" %02x %02x %04x", zp, cpu.X, addr)
 			rom.Set(addr, cpu.A)
 		case CPU.STA_INY: // store a, indirect, y
@@ -921,7 +917,8 @@ func main() {
 			zp, _ := rom.Get(cpu.PC)
 			cpu.PC++
 			fmt.Printf("%02x (Indirect, Y)", zp)
-			addr := uint16(zp + cpu.Y)
+			addr, _ := rom.GetWord(uint16(zp))
+			addr += uint16(cpu.Y)
 			rom.Set(addr, cpu.A)
 		case CPU.STX_ZP:
 			// store a, zero page
@@ -934,9 +931,9 @@ func main() {
 			// store a, zero page, x
 			fmt.Printf("I: STX ")
 			zp, _ := rom.Get(cpu.PC)
-			addr := uint16(zp + cpu.X)
+			addr := uint16(zp + cpu.Y)
 			cpu.PC++
-			fmt.Printf("%04x (ZP, Y)", zp)
+			fmt.Printf("%02x (ZP, Y)", zp)
 			rom.Set(addr, cpu.X)
 		case CPU.STX_A:
 			// store a, zero page, x
@@ -958,7 +955,7 @@ func main() {
 			zp, _ := rom.Get(cpu.PC)
 			addr := uint16(zp + cpu.X)
 			cpu.PC++
-			fmt.Printf("%04x (ZP, X)", zp)
+			fmt.Printf("%02x (ZP, X)", zp)
 			rom.Set(addr, cpu.Y)
 		case CPU.STY_A:
 			// store a, zero page, x
@@ -1141,18 +1138,19 @@ func main() {
 			fmt.Printf("I: LDA ")
 			a, _ := rom.GetWord(cpu.PC)
 			cpu.PC += 2
-			fmt.Printf("%04x (ABS, X)", a)
+			fmt.Printf("%04x (ABS, Y)", a)
 			b, _ := rom.Get(a + uint16(cpu.Y))
 			cpu.A = b
 			cpu.SetStatus(CPU.Zero, cpu.A == 0)
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
-		case CPU.LDA_IX:
+		case CPU.LDA_INX:
 			// load A x index, indirect
 			fmt.Printf("I: LDA ")
 			zp, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			fmt.Printf("%04x (Indirect, X)", zp)
-			addr := uint16(zp + cpu.X)
+			fmt.Printf("%02x (Indirect, X)", zp)
+			addr, _ := rom.GetWord(uint16(zp))
+			addr += uint16(cpu.X)
 			fmt.Printf(" %02x %02x %04x", zp, cpu.X, addr)
 			b, _ := rom.Get(addr)
 			cpu.A = b
@@ -1163,8 +1161,9 @@ func main() {
 			fmt.Printf("I: LDA ")
 			zp, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			fmt.Printf("%04x (Indirect, Y)", zp)
-			addr := uint16(zp + cpu.Y)
+			fmt.Printf("%02x (Indirect, Y)", zp)
+			addr, _ := rom.GetWord(uint16(zp))
+			addr += uint16(cpu.Y)
 			fmt.Printf(" %02x %02x %04x", zp, cpu.Y, addr)
 			b, _ := rom.Get(addr)
 			cpu.A = b
@@ -1244,7 +1243,7 @@ func main() {
 			zp, _ := rom.Get(cpu.PC)
 			cpu.PC++
 			fmt.Printf("%02x (ZP, Y)", zp)
-			b, _ = rom.Get(uint16(zp + cpu.Y))
+			b, _ = rom.Get(uint16(zp + cpu.X))
 			cpu.Y = b
 			cpu.SetStatus(CPU.Zero, cpu.Y == 0)
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.Y))
@@ -1264,7 +1263,7 @@ func main() {
 			a, _ := rom.GetWord(cpu.PC)
 			cpu.PC += 2
 			fmt.Printf("%04x (ABS, X)", a)
-			b, _ := rom.Get(a + uint16(cpu.Y))
+			b, _ := rom.Get(a + uint16(cpu.X))
 			cpu.Y = b
 			cpu.SetStatus(CPU.Zero, cpu.Y == 0)
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.Y))
@@ -1755,10 +1754,16 @@ func DebugConsole(cpu *CPU.CPU, rom *Memory.Memory) {
 		case "test":
 			// special command for just doing quick tests
 			// code is volatile
-			b := 0xFC
-			var c int8 = int8(b - 127)
-			var d int8 = int8(b)
-			fmt.Printf("%02x %02x %08b %v %v\n", b, c, c, c, d)
+			// b := 0xFC
+			var a int8 = 85
+			fmt.Printf("A: %08b\n", a)
+			a = a & 83
+			fmt.Printf("&: %08b\n", a)
+			a = a | 56
+			fmt.Printf("|: %08b\n", a)
+			a = a ^ 17
+			fmt.Printf("^: %08b\n", a)
+			// fmt.Printf("%02x %02x %02x %08b %v\n", b, c, d, e, e)
 		}
 
 		// fmt.Printf("\n")

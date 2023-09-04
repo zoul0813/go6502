@@ -194,8 +194,8 @@ test01:
 	STA $33
 	LDA #114
 	STA $34
-        LDA #$01
-        STA $35
+	LDA #$01
+	STA $35
 	LDA #197
 	STA $0170
 	LDA #124

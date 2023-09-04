@@ -15,6 +15,33 @@
 .segment "CODE"
 
 start:
+  ; ;; internal test
+	; LDA #$FF ; X
+	; STA $f0 ; X
+	; LDA #$50 ; X
+	; LDX #$11 ; X
+	; LDY #$22 ; X
+	; STA $00 ; X
+	; LDA #$51 ; X
+	; STA $00,X ; X
+	; LDA #$52 ; X
+	; STA $0022 ; X
+	; ; .byte $FF
+	; LDA #$53 ; X
+	; STA $0020,X ; X
+	; LDA #$54 ; X
+	; STA $0030,Y ; X
+	; LDA #$55 ; X
+	; LDX #$00 ; X
+	; STA ($00,X)
+	; LDA #$56
+	; LDY #$01
+	; STA ($00),Y
+
+	; .byte $FF ; DebugConsole
+	; ;; quit here
+
+
 ; EXPECTED FINAL RESULTS: $0210 = FF
 ; (any other number will be the
 ;  test that failed)
@@ -58,7 +85,7 @@ start:
 
 ; expected result: $022A = 0x55
 test00:
-	.byte $FF      ; DebugConsole
+	; .byte $FF      ; DebugConsole
 	LDA #85				 ; $55
 	LDX #42        ; $2A
 	LDY #115       ; $73
@@ -74,7 +101,7 @@ test00:
 	LDA #$7E
 	LDA $56,X
 	STY $60					; 0060 = 73
-	.byte $FF       ; DebugConsole ; $4070
+	; .byte $FF       ; DebugConsole ; $4070
 	STA ($60),Y     ; 01e6 = 55
 	LDA #$7E
 	LDA ($60),Y     ; $55
@@ -87,25 +114,184 @@ test00:
 	STA ($36,X)     ; 0060 = 55
 	LDA #$7E
 	LDA ($36,X)     ; correct up to here?
-	.byte $FF       ; Debug Console
+	; .byte $FF       ; Debug Console
 	STX $50
 	LDX $60
-	LDY $50
+	LDY $50					;
 	STX $0913
-	LDX #$22
-	LDX $0913
+	LDX #$22        ;
+	LDX $0913       ;
 	STY $0914
 	LDY #$99
-	LDY $0914
-	STY $2D,X
-	STX $77,Y
+	LDY $0914       ;
+	STY $2D,X       ;
+	STX $77,Y       ; 00a1 = 55
+	; .byte $FF ; DebugConsole
 	LDY #$99
-	LDY $2D,X
+	LDY $2D,X ;
 	LDX #$22
-	LDX $77,Y
-	LDY #$99
+	LDX $77,Y ; 55?
+	LDY #$99 ;
 	LDY $08A0,X
 	LDX #$22
 	LDX $08A1,Y
 	STA $0200,X
+	; .byte $FF ; DebugConsole
+; CHECK test00:
+	LDA $022A
+	CMP $0200
+	BEQ test00pass
+	JMP theend
+test00pass:
+	LDA #$FE
+	STA $0210
+
+; expected result: $A9 = 0xAA
+test01:
+	; imm
+	LDA #85  ; 01010101
+	AND #83  ; 01010011
+	;       -> 01010001
+	ORA #56  ; 00111000
+	;       -> 01111001
+	EOR #17  ; 00010001
+	;       -> 01101000
+
+
+	; zpg
+	STA $99
+	LDA #185
+	STA $10
+	LDA #231
+	STA $11
+	LDA #57
+	STA $12
+	LDA $99
+	AND $10
+	ORA $11
+	EOR $12
+
+	; zpx
+	LDX #16
+	STA $99
+	LDA #188
+	STA $20
+	LDA #49
+	STA $21
+	LDA #23
+	STA $22
+	LDA $99
+	AND $10,X
+	ORA $11,X
+	EOR $12,X
+
+	; abs
+	STA $99
+	LDA #111
+	STA $0110
+	LDA #60
+	STA $0111
+	LDA #39
+	STA $0112
+	LDA $99
+	AND $0110
+	ORA $0111
+	EOR $0112
+
+	; abx
+	STA $99
+	LDA #138
+	STA $0120
+	LDA #71
+	STA $0121
+	LDA #143
+	STA $0122
+	LDA $99
+	AND $0110,X
+	ORA $0111,X
+	EOR $0112,X
+
+	; aby
+	LDY #32
+	STA $99
+	LDA #115
+	STA $0130
+	LDA #42
+	STA $0131
+	LDA #241
+	STA $0132
+	LDA $99
+	AND $0110,Y
+	ORA $0111,Y
+	EOR $0112,Y
+
+	; idx
+	STA $99
+	LDA #112
+	STA $30
+	LDA #$01
+	STA $31
+	LDA #113
+	STA $32
+	LDA #$01
+	STA $33
+	LDA #114
+	STA $34
+	LDA #$01
+	STA $35
+	LDA #197
+	STA $0170
+	LDA #124
+	STA $0171
+	LDA #161
+	STA $0172
+	LDA $99
+	AND ($20,X)
+	ORA ($22,X)
+	EOR ($24,X)
+
+	; idy
+	STA $99
+	LDA #96
+	STA $40
+	LDA #$01
+	STA $41
+	LDA #97
+	STA $42
+	LDA #$01
+	STA $43
+	LDA #98
+	STA $44
+	LDA #$01
+	STA $45
+	LDA #55
+	STA $0250
+	LDA #35
+	STA $0251
+	LDA #157
+	STA $0252
+	LDA $99
+	LDY #$F0
+	AND ($40),Y
+	ORA ($42),Y
+	EOR ($44),Y
+
+	STA $A9
+
+; CHECK test01
 	.byte $FF
+	LDA $A9
+	CMP $0201
+	BEQ test02
+	LDA #$01
+	STA $0210
+	JMP theend
+
+test02:
+	LDA #$00
+	LDX #$00
+	LDY #$00
+
+theend:
+  .byte $FF     ; DebugConsole
+	JMP theend
