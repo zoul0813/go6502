@@ -132,6 +132,7 @@ func (o *Memory) Dump(addr uint16, size uint16) {
 	}
 
 	fmt.Printf("Memory Dump (%07x:%07x)\n", addr, addr+size)
+	fmt.Printf(Colorize(DebugColor, "%s", "------- 0001 0203 0405 0607 0809 0A0B 0C0D 0E0F\n"))
 	fmt.Printf(Colorize(DebugColor, "%s", "------- ---- ---- ---- ---- ---- ---- ---- ----\n"))
 	// fmt.Printf("0000000 2aa5 3818 0000 0000 0000 0000 0000 0000")
 	var lcv int = 0

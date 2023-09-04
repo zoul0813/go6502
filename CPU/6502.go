@@ -47,6 +47,8 @@ type CPU struct {
 	X      uint8
 	Y      uint8
 	Status uint8
+
+	SingleStep bool
 }
 
 // Utility Functions
@@ -85,14 +87,16 @@ func New(
 	X uint8,
 	Y uint8,
 	Status uint8,
+	SingleStep bool,
 ) *CPU {
 	return &CPU{
-		PC:     PC,
-		SP:     SP,
-		A:      A,
-		X:      X,
-		Y:      Y,
-		Status: Status,
+		PC:         PC,
+		SP:         SP,
+		A:          A,
+		X:          X,
+		Y:          Y,
+		Status:     Status,
+		SingleStep: SingleStep,
 	}
 }
 
