@@ -146,6 +146,7 @@ test00pass:
 	LDA #$FE
 	STA $0210
 
+
 ; expected result: $A9 = 0xAA
 test01:
 	; imm
@@ -155,7 +156,7 @@ test01:
 	ORA #56  ; 00111000
 	;       -> 01111001
 	EOR #17  ; 00010001
-	;       -> 01101000
+	;       -> 01101000 = 68
 
 
 	; zpg
@@ -166,11 +167,16 @@ test01:
 	STA $11
 	LDA #57
 	STA $12
-	LDA $99
-	AND $10
-	ORA $11
-	EOR $12
+	LDA $99 ; 01101000
+	AND $10 ; 10111001
+	;      -> 00101000
+	ORA $11 ; 11100111
+	;      -> 11101111
+	EOR $12 ; 00111001
+	;      -> 11010110
+	;       = 11010110
 
+	.byte $FF ; DebugConsole
 	; zpx
 	LDX #16
 	STA $99
@@ -178,10 +184,11 @@ test01:
 	STA $20
 	LDA #49
 	STA $21
-	LDA #23
+	LDA #32
 	STA $22
-	LDA $99
-	AND $10,X
+	LDA $99   ; 11010110 (d6 in A)
+	AND $10,X ; 10111001
+	;        -> 10010000
 	ORA $11,X
 	EOR $12,X
 
