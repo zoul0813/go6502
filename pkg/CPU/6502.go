@@ -8,6 +8,8 @@ import (
 
 type StatusFlag uint8
 
+// type word = uint16
+
 /*
 	Status Register
 	--------------------------------------------------
@@ -52,7 +54,7 @@ type CPU struct {
 
 	SingleStep bool
 
-	LastAddress uint16
+	Address uint16
 }
 
 // Utility Functions
@@ -68,8 +70,8 @@ const (
 	Bit7 = 0b10000000
 )
 
-func BitSet(bit byte, value uint16) bool {
-	b := value & uint16(bit)
+func BitSet(bit uint8, value uint8) bool {
+	b := value & bit
 	return b != 0
 }
 
@@ -79,8 +81,8 @@ func IsNegative(value uint8) bool {
 }
 
 func IsOverflow(prev uint8, current uint8) bool {
-	p7 := BitSet(Bit7, uint16(prev))
-	c7 := BitSet(Bit7, uint16(current))
+	p7 := BitSet(Bit7, prev)
+	c7 := BitSet(Bit7, current)
 	return p7 == c7
 }
 
@@ -105,7 +107,7 @@ func New(
 }
 
 func (o *CPU) SetStatus(flag uint8, value bool) {
-	var status byte
+	var status uint8
 	if value {
 		// cpu.Status |= 0b00000001 // bitset
 		status = o.Status | flag
@@ -144,8 +146,8 @@ func (o *CPU) DebugBits() {
 	fmt.Print("          NV-BDIZC\n\n")
 }
 
-func (o *CPU) Write(rom *Memory.Memory, b byte) error {
-	err := rom.Set(o.LastAddress, b)
+func (o *CPU) Write(rom *Memory.Memory, b uint8) error {
+	err := rom.Set(o.Address, b)
 	return err
 }
 
@@ -154,67 +156,67 @@ func (o *CPU) Write(rom *Memory.Memory, b byte) error {
 */
 
 func (o *CPU) Immediate(rom *Memory.Memory) (uint16, error) {
-	o.LastAddress = o.PC
+	o.Address = o.PC
 	o.PC += 1
-	return o.LastAddress, nil
+	return o.Address, nil
 }
 
 func (o *CPU) ZeroPage(rom *Memory.Memory) (uint16, error) {
 	zp, err := rom.Get(o.PC)
 	o.PC += 1
-	o.LastAddress = uint16(zp)
-	return o.LastAddress, err
+	o.Address = uint16(zp)
+	return o.Address, err
 }
 
 func (o *CPU) ZeroPageX(rom *Memory.Memory) (uint16, error) {
 	zp, err := rom.Get(o.PC)
 	o.PC += 1
-	o.LastAddress = uint16(zp + o.X)
-	return o.LastAddress, err
+	o.Address = uint16(zp + o.X)
+	return o.Address, err
 }
 
 func (o *CPU) ZeroPageY(rom *Memory.Memory) (uint16, error) {
 	zp, err := rom.Get(o.PC)
 	o.PC += 1
-	o.LastAddress = uint16(zp + o.Y)
-	return o.LastAddress, err
+	o.Address = uint16(zp + o.Y)
+	return o.Address, err
 }
 
 func (o *CPU) Absolute(rom *Memory.Memory) (uint16, error) {
 	addr, err := rom.GetWord(o.PC)
 	o.PC += 2
-	o.LastAddress = addr
-	return o.LastAddress, err
+	o.Address = addr
+	return o.Address, err
 }
 
 func (o *CPU) AbsoluteX(rom *Memory.Memory) (uint16, error) {
 	addr, err := rom.GetWord(o.PC)
 	o.PC += 2
-	o.LastAddress = addr + uint16(o.X)
-	return o.LastAddress, err
+	o.Address = addr + uint16(o.X)
+	return o.Address, err
 }
 
 func (o *CPU) AbsoluteY(rom *Memory.Memory) (uint16, error) {
 	addr, err := rom.GetWord(o.PC)
 	o.PC += 2
-	o.LastAddress = addr + uint16(o.Y)
-	return o.LastAddress, err
+	o.Address = addr + uint16(o.Y)
+	return o.Address, err
 }
 
 func (o *CPU) Indirect(rom *Memory.Memory) (uint16, error) {
 	from, _ := rom.GetWord(o.PC)
 	o.PC += 2
 	addr, err := rom.GetWord(from)
-	o.LastAddress = addr
-	return o.LastAddress, err
+	o.Address = addr
+	return o.Address, err
 }
 
 func (o *CPU) IndirectX(rom *Memory.Memory) (uint16, error) {
 	zp, _ := rom.Get(o.PC)
 	o.PC += 1
 	addr, err := rom.GetWord(uint16(zp + o.X))
-	o.LastAddress = addr
-	return o.LastAddress, err
+	o.Address = addr
+	return o.Address, err
 }
 
 func (o *CPU) IndirectY(rom *Memory.Memory) (uint16, error) {
@@ -222,6 +224,36 @@ func (o *CPU) IndirectY(rom *Memory.Memory) (uint16, error) {
 	o.PC += 1
 	addr1, err := rom.GetWord(uint16(zp))
 	addr := addr1 + uint16(o.Y)
-	o.LastAddress = addr
-	return o.LastAddress, err
+	o.Address = addr
+	return o.Address, err
+}
+
+/*
+ * Math
+ */
+
+func (o *CPU) ADC(operand uint8) uint8 {
+	carry := BitSet(Carry, o.Status)
+	var c uint8 = 0
+	if carry {
+		c = 1
+	}
+	var sum int16 = int16(o.A + operand + c)
+
+	// shift off the lower 8 bits, if any remain, we have an overflow
+	carry = (sum >> 8) > 0
+
+	a := uint8(sum & 0x00ff)
+
+	o.SetStatus(Negative, IsNegative(a))
+	o.SetStatus(Overflow, IsOverflow(o.A, a))
+	o.SetStatus(Zero, a == 0)
+	o.SetStatus(Carry, carry)
+
+	o.A = a
+	return a
+}
+
+func (o *CPU) SBC(operand uint8) uint8 {
+	return o.ADC(^operand)
 }

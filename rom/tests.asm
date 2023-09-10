@@ -329,9 +329,9 @@ test03:
 	ASL ; $4A
 
 	STA $50 ; $4A
-	ASL $50 ;
-	ASL $50 ;
-	LSR $50 ;
+	ASL $50 ; $94
+	ASL $50 ; $28
+	LSR $50 ; $14
 	LDA $50 ; $14
 
 	LDX $50
@@ -350,7 +350,8 @@ test03:
 	ASL $0100,X ; $36
 	LDA $0100,X ; $36
 
-	LDX $012E
+
+	LDX $012E ; $41
 	ORA #$81
 	STA $0100,X
 	LSR $0136
@@ -476,7 +477,7 @@ test05:
 
 ; expected result: $30 = 9D
 test06:
-	; .byte $FF,
+	.byte $FF, $FE
 ; RESET TO CARRY FLAG = 0
 	ROL
 
@@ -490,14 +491,14 @@ test06:
 	STA $61 ;
 
 	LDA #$FF ;
-	ADC #$FF ;
-	ADC #$FF ;
-	SBC #$AE ;
+	ADC #$FF ; $FE
+	ADC #$FF ; $FD
+	SBC #$AE ; $4F
 
 	STA $40 ;
-	LDX $40 ;
-	ADC $00,X
-	SBC $01,X
+	LDX $40 ; $4F?
+	ADC $00,X ; $00 + $4F = $00?
+	SBC $01,X ; ??
 
 	ADC $60
 	SBC $61
