@@ -381,9 +381,9 @@ test03:
 	
 ; expected result: $40 = 0x42
 test04:
-	LDA #$E8 ;originally:#$7C
+	LDA #<final ; #$E8 ;originally:#$7C
 	STA $20
-	LDA #$42 ;originally:#$02
+	LDA #>final ; #$42 ;originally:#$02
 	STA $21
 	LDA #$00
 	ORA #$03

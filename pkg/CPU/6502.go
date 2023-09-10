@@ -2,6 +2,8 @@ package CPU
 
 import (
 	"fmt"
+
+	"github.com/zoul0813/go6502/pkg/Memory"
 )
 
 type StatusFlag uint8
@@ -49,6 +51,8 @@ type CPU struct {
 	Status uint8
 
 	SingleStep bool
+
+	LastAddress uint16
 }
 
 // Utility Functions
@@ -138,4 +142,87 @@ func (o *CPU) DebugBits() {
 	fmt.Printf("       Y: %08b\n", o.Y)
 	fmt.Printf(" Status : %08b\n", o.Status)
 	fmt.Print("          NV-BDIZC\n\n")
+}
+
+func (o *CPU) Write(rom *Memory.Memory, b byte) error {
+	err := rom.Set(o.LastAddress, b)
+	return err
+}
+
+/*
+  Addressing Modes
+*/
+
+func (o *CPU) Immediate(rom *Memory.Memory) (uint16, error) {
+	o.LastAddress = o.PC
+	o.PC += 1
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, nil
+}
+
+func (o *CPU) ZeroPage(rom *Memory.Memory) (uint16, error) {
+	zp, err := rom.Get(o.PC)
+	o.PC += 1
+	o.LastAddress = uint16(zp)
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) ZeroPageX(rom *Memory.Memory) (uint16, error) {
+	zp, err := rom.Get(o.PC)
+	o.PC += 1
+	o.LastAddress = uint16(zp + o.X)
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) ZeroPageY(rom *Memory.Memory) (uint16, error) {
+	zp, err := rom.Get(o.PC)
+	o.PC += 1
+	o.LastAddress = uint16(zp + o.Y)
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) Absolute(rom *Memory.Memory) (uint16, error) {
+	addr, err := rom.GetWord(o.PC)
+	o.PC += 2
+	o.LastAddress = addr
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) AbsoluteX(rom *Memory.Memory) (uint16, error) {
+	addr, err := rom.GetWord(o.PC)
+	o.PC += 2
+	o.LastAddress = addr + uint16(o.X)
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) AbsoluteY(rom *Memory.Memory) (uint16, error) {
+	addr, err := rom.GetWord(o.PC)
+	o.PC += 2
+	o.LastAddress = addr + uint16(o.Y)
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) IndirectX(rom *Memory.Memory) (uint16, error) {
+	zp, _ := rom.Get(o.PC)
+	o.PC += 1
+	addr, err := rom.GetWord(uint16(zp + o.X))
+	o.LastAddress = addr
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
+}
+
+func (o *CPU) IndirectY(rom *Memory.Memory) (uint16, error) {
+	zp, _ := rom.Get(o.PC)
+	o.PC += 1
+	addr1, err := rom.GetWord(uint16(zp))
+	addr := addr1 + uint16(o.Y)
+	o.LastAddress = addr
+	// b, err := rom.Get(o.LastAddress)
+	return o.LastAddress, err
 }
