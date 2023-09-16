@@ -477,7 +477,6 @@ test05:
 
 ; expected result: $30 = 9D
 test06:
-	.byte $FF, $FE
 ; RESET TO CARRY FLAG = 0
 	ROL
 
@@ -490,14 +489,15 @@ test06:
 	LDA #$A2 ;
 	STA $61 ;
 
+	; .byte $FF, $FE
 	LDA #$FF ;
 	ADC #$FF ; $FE
-	ADC #$FF ; $FD
-	SBC #$AE ; $4F
+	ADC #$FF ; $FE ; adds the carry
+	SBC #$AE ; $50
 
 	STA $40 ;
-	LDX $40 ; $4F?
-	ADC $00,X ; $00 + $4F = $00?
+	LDX $40 ; $50
+	ADC $00,X ; $00 + $50 ($6A) = $00?
 	SBC $01,X ; ??
 
 	ADC $60
@@ -568,9 +568,247 @@ test06:
 	JMP theend
 
 test07:
-	LDA #0
-	LDX #0
-	LDY #0
+	; prepare memory
+	LDA #$00
+	STA $34
+	LDA #$FF
+	STA $0130
+	LDA #$99
+	STA $019D
+	LDA #$DB
+	STA $0199
+	LDA #$2F
+	STA $32
+	LDA #$32
+	STA $4F
+	LDA #$30
+	STA $33
+	LDA #$70
+	STA $AF
+	LDA #$18
+	STA $30
+
+	; imm
+	CMP #$18 ;
+	BEQ beq1 ; taken
+	AND #$00 ; not done
+beq1:
+	; zpg
+	ORA #$01 ; $19
+	CMP $30 ;
+	BNE bne1 ; taken
+	AND #$00 ; not done
+bne1:
+	; abs
+	LDX #$00 ;
+	CMP $0130 ;
+	BEQ beq2 ; not taken
+	STA $40 ;
+	LDX $40 ;
+beq2:
+	; zpx
+	CMP $27,X ;
+	BNE bne2 ; not taken
+	ORA #$84 ;
+	STA $41 ;
+	LDX $41 ;
+bne2:
+	; abx
+	AND #$DB ;
+	CMP $0100,X ;
+	BEQ beq3 ; taken
+	AND #$00 ; not done
+beq3:
+	; aby
+	STA $42 ;
+	LDY $42 ;
+	AND #$00 ;
+	CMP $0100,Y ;
+	BNE bne3 ; taken
+	ORA #$0F ; not done
+bne3:
+	; idx
+	STA $43 ;
+	LDX $43 ;
+	ORA #$24 ;
+	CMP ($40,X) ;
+	BEQ beq4 ; not taken
+	ORA #$7F ;
+beq4:
+	; idy
+	STA $44 ;
+	LDY $44 ;
+	EOR #$0F ;
+	CMP ($33),Y
+	BNE bne4 ; not taken
+	LDA $44
+	STA $15
+bne4:
+
+	.byte $FF, $07; expected result: $15 = 0x7F
+; CHECK test07
+	LDA $15
+	CMP $0207
+	BEQ test08
+	LDA #$07
+	STA $0210
+	JMP theend
+
+; expected result: $42 = 0xA5
+test08:
+	; prepare memory
+	LDA #$A5 ;
+	STA $20 ;
+	STA $0120 ;
+	LDA #$5A ;
+	STA $21 ;
+
+	; cpx imm...
+	LDX #$A5
+	CPX #$A5
+	BEQ b1 ; taken
+	LDX #$01 ; not done
+b1:
+	; cpx zpg...
+	CPX $20 ;
+	BEQ b2 ; taken
+	LDX #$02 ; not done
+b2:
+	; cpx abs...
+	CPX $0120 ;
+	BEQ b3 ; taken
+	LDX #$03 ; not done
+b3:
+	; cpy imm...
+	STX $30 ;
+	LDY $30 ;
+	CPY #$A5 ;
+	BEQ b4 ; taken
+	LDY #$04 ; not done
+b4:
+	; cpy zpg...
+	CPY $20 ;
+	BEQ b5 ; taken
+	LDY #$05 ; not done
+b5:
+	; cpy abs...
+	CPY $0120 ;
+	BEQ b6 ; taken
+	LDY #$06 ; not done
+b6:
+	; bit zpg...
+	STY $31 ;
+	LDA $31 ;
+	BIT $20 ;
+	BNE b7 ; taken
+	LDA #$07 ; not done
+b7:
+	; bit abs...
+	BIT $0120 ;
+	BNE b8 ; taken
+	LDA #$08 ; not done
+b8:
+	BIT $21 ;
+	BNE b9 ; not taken
+	STA $42 ;
+b9:
+
+	.byte $FF, $08 ; expected result: $42 = 0xA5
+; CHECK test08
+	LDA $42
+	CMP $0208
+	BEQ test09
+	LDA #$08
+	STA $0210
+	JMP theend
+
+; expected result: $80 = 0x1F
+test09:
+	; prepare memory
+	LDA #$54 ;
+	STA $32 ;
+	LDA #$B3 ;
+	STA $A1 ;
+	LDA #$87 ;
+	STA $43 ;
+
+	; BPL
+	LDX #$A1 ;
+	BPL bpl1 ; not taken
+	LDX #$32 ;
+bpl1:
+	LDY $00,X ;
+	BPL bpl2 ; taken
+	LDA #$05 ; not done
+	LDX $A1 ; not done
+bpl2:
+
+	; BMI
+	BMI bmi1 ; not taken
+	SBC #$03 ;
+bmi1:
+	BMI bmi2 ; taken
+	LDA #$41 ; not done
+bmi2:
+
+	; BVC
+	EOR #$30 ;
+	STA $32 ;
+	ADC $00,X ;
+	BVC bvc1 ; not taken
+	LDA #$03 ;
+bvc1:
+	STA $54 ;
+	LDX $00,Y ;
+	ADC $51,X ;
+	BVC bvc2 ; taken
+	LDA #$E5 ; not done
+bvc2:
+	.byte $FF, $FD ; DebugConsole
+	; BVS
+	ADC $40,X
+	BVS bvs1 ; not taken
+	STA $0001,Y
+	ADC $55
+bvs1:
+	BVS bvs2 ; taken
+	LDA #$00
+bvs2:
+
+	; BCC
+	ADC #$F0
+	BCC bcc1 ; not taken
+	STA $60
+	ADC $43
+bcc1:
+	BCC bcc2 ; taken
+	LDA #$FF
+bcc2:
+
+	; BCS
+	ADC $54
+	BCS bcs1 ; not taken
+	ADC #$87
+	LDX $60
+bcs1:
+	BCS bcs2 ; taken
+	LDA #$00 ; not done
+bcs2:
+	STA $73,X
+
+	.byte $FF, $09 ; expected result: $80 = 0x1F
+; CHECK test09
+	LDA $80
+	CMP $0209
+	BEQ test10
+	LDA #$09
+	STA $0210
+	JMP theend
+
+test10:
+	LDA #$FF
+	LDX #$FF
+	LDY #$FF
 
 theend:
 	; EXPECTED FINAL RESULTS: $0210 = FF

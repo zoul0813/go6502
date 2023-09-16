@@ -116,80 +116,80 @@ func main() {
 			fmt.Printf("I: BPL ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			neg := CPU.BitSet(CPU.Negative, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			neg := CPU.BitTest(CPU.Negative, cpu.Status)
 			if !neg {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BMI:
 			// branch on minus
 			fmt.Printf("I: BMI ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			neg := CPU.BitSet(CPU.Negative, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			neg := CPU.BitTest(CPU.Negative, cpu.Status)
 			if neg {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BVC:
 			// branch on overflow clear
 			fmt.Printf("I: BVC ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			overflow := CPU.BitSet(CPU.Overflow, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			overflow := CPU.BitTest(CPU.Overflow, cpu.Status)
 			if !overflow {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BVS:
 			// branch on overflow set
 			fmt.Printf("I: BVS ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			overflow := CPU.BitSet(CPU.Overflow, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			overflow := CPU.BitTest(CPU.Overflow, cpu.Status)
 			if overflow {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BCC:
 			// branch on carry clear
 			fmt.Printf("I: BCC ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
 			if !carry {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BCS:
 			// branch on carry set
 			fmt.Printf("I: BCS ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
 			if carry {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BNE:
 			// branch on not equal
 			fmt.Printf("I: BNE ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			zero := CPU.BitSet(CPU.Zero, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			zero := CPU.BitTest(CPU.Zero, cpu.Status)
 			if !zero {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 		case CPU.BEQ:
 			// branch on equal
 			fmt.Printf("I: BEQ ")
 			rel, _ := rom.Get(cpu.PC)
 			cpu.PC++
-			zero := CPU.BitSet(CPU.Zero, cpu.Status)
+			fmt.Printf("%02x (Rel)", rel)
+			zero := CPU.BitTest(CPU.Zero, cpu.Status)
 			if zero {
-				var offset int8 = int8(rel)
-				cpu.PC += uint16(offset)
+				cpu.PC += uint16(rel)
 			}
 
 		// Misc
@@ -225,7 +225,7 @@ func main() {
 			fmt.Printf("I: ADC ")
 			addr, _ := cpu.ZeroPageX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP, X)", addr)
+			fmt.Printf("%02x (ZP, X)", addr)
 
 			cpu.ADC(b)
 			// N V Z C
@@ -243,7 +243,7 @@ func main() {
 			fmt.Printf("I: ADC ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			cpu.ADC(b)
 			// N V Z C
@@ -252,7 +252,7 @@ func main() {
 			fmt.Printf("I: ADC ")
 			addr, _ := cpu.AbsoluteY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, Y)", addr)
+			fmt.Printf("%04x (ABS, Y)", addr)
 
 			cpu.ADC(b)
 			// N V Z C
@@ -261,7 +261,7 @@ func main() {
 			fmt.Printf("I: ADC ")
 			addr, _ := cpu.IndirectX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, X)", addr)
+			fmt.Printf("%04x (Indirect, X)", addr)
 
 			cpu.ADC(b)
 			// N V Z C
@@ -270,7 +270,7 @@ func main() {
 			fmt.Printf("I: ADC ")
 			addr, _ := cpu.IndirectY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 
 			cpu.ADC(b)
 			// N V Z C
@@ -317,7 +317,7 @@ func main() {
 			fmt.Printf("I: SBC ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			cpu.SBC(b)
 			// N V Z C
@@ -326,7 +326,7 @@ func main() {
 			fmt.Printf("I: SBC ")
 			addr, _ := cpu.AbsoluteY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, Y)", addr)
+			fmt.Printf("%04x (ABS, Y)", addr)
 
 			cpu.SBC(b)
 			// N V Z C
@@ -335,7 +335,7 @@ func main() {
 			fmt.Printf("I: SBC ")
 			addr, _ := cpu.IndirectX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, X)", addr)
+			fmt.Printf("%04x (Indirect, X)", addr)
 
 			cpu.SBC(b)
 			// N V Z C
@@ -344,7 +344,7 @@ func main() {
 			fmt.Printf("I: SBC ")
 			addr, _ := cpu.IndirectY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 
 			cpu.SBC(b)
 			// N V Z C
@@ -407,7 +407,7 @@ func main() {
 			fmt.Printf("I: CMP ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			a := cpu.A
 			r := a - b // actually do the math, so we can determine if it's negative
@@ -420,7 +420,7 @@ func main() {
 			fmt.Printf("I: CMP ")
 			addr, _ := cpu.AbsoluteY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, Y)", addr)
+			fmt.Printf("%04x (ABS, Y)", addr)
 
 			a := cpu.A
 			r := a - b // actually do the math, so we can determine if it's negative
@@ -433,7 +433,7 @@ func main() {
 			fmt.Printf("I: CMP ")
 			addr, _ := cpu.IndirectX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, X)", addr)
+			fmt.Printf("%04x (Indirect, X)", addr)
 
 			a := cpu.A
 			r := a - b // actually do the math, so we can determine if it's negative
@@ -447,7 +447,7 @@ func main() {
 			addr, _ := cpu.IndirectY(rom)
 			b, _ := rom.Get(addr)
 
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 
 			a := cpu.A
 			r := a - b // actually do the math, so we can determine if it's negative
@@ -581,7 +581,7 @@ func main() {
 			fmt.Printf("I: AND ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			cpu.A &= b
 
@@ -592,7 +592,7 @@ func main() {
 			fmt.Printf("I: AND ")
 			addr, _ := cpu.AbsoluteY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, Y)", addr)
+			fmt.Printf("%04x (ABS, Y)", addr)
 
 			cpu.A &= b
 
@@ -603,7 +603,7 @@ func main() {
 			fmt.Printf("I: AND ")
 			addr, _ := cpu.IndirectX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, X)", addr)
+			fmt.Printf("%04x (Indirect, X)", addr)
 
 			cpu.A &= b
 
@@ -614,7 +614,7 @@ func main() {
 			fmt.Printf("I: AND ")
 			addr, _ := cpu.IndirectY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 
 			cpu.A &= b
 
@@ -671,7 +671,7 @@ func main() {
 			fmt.Printf("I: EOR ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			cpu.A ^= b
 
@@ -682,7 +682,7 @@ func main() {
 			fmt.Printf("I: EOR ")
 			addr, _ := cpu.AbsoluteY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, Y)", addr)
+			fmt.Printf("%04x (ABS, Y)", addr)
 
 			cpu.A ^= b
 
@@ -693,7 +693,7 @@ func main() {
 			fmt.Printf("I: EOR ")
 			addr, _ := cpu.IndirectX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, X)", addr)
+			fmt.Printf("%04x (Indirect, X)", addr)
 			cpu.A ^= b
 
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -703,7 +703,7 @@ func main() {
 			fmt.Printf("I: EOR ")
 			addr, _ := cpu.IndirectY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 			cpu.A ^= b
 
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -759,7 +759,7 @@ func main() {
 			fmt.Printf("I: ORA ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			cpu.A |= b
 
@@ -770,7 +770,7 @@ func main() {
 			fmt.Printf("I: ORA ")
 			addr, _ := cpu.AbsoluteY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, Y)", addr)
+			fmt.Printf("%04x (ABS, Y)", addr)
 
 			cpu.A |= b
 
@@ -781,7 +781,7 @@ func main() {
 			fmt.Printf("I: ORA ")
 			addr, _ := cpu.IndirectX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, X)", addr)
+			fmt.Printf("%04x (Indirect, X)", addr)
 			cpu.A |= b
 
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -791,7 +791,7 @@ func main() {
 			fmt.Printf("I: ORA ")
 			addr, _ := cpu.IndirectY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 
 			cpu.A |= b
 
@@ -803,7 +803,7 @@ func main() {
 			// store a, zero page
 			fmt.Printf("I: STA ")
 			addr, _ := cpu.ZeroPage(rom)
-			fmt.Printf("%04x (ZP)", addr)
+			fmt.Printf("%02x (ZP)", addr)
 
 			rom.Set(addr, cpu.A)
 		case CPU.STA_ZPX:
@@ -843,7 +843,7 @@ func main() {
 		case CPU.STA_INY: // store a, indirect, y
 			fmt.Printf("I: STA ")
 			addr, _ := cpu.IndirectY(rom)
-			fmt.Printf("%02x (Indirect, Y)", addr)
+			fmt.Printf("%04x (Indirect, Y)", addr)
 
 			rom.Set(addr, cpu.A)
 		case CPU.STX_ZP:
@@ -931,7 +931,7 @@ func main() {
 			fmt.Printf("I: INC ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			b++
 			rom.Set(addr, b)
@@ -979,7 +979,7 @@ func main() {
 			fmt.Printf("I: DEC ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
 			b--
 			rom.Set(addr, b)
@@ -1029,7 +1029,7 @@ func main() {
 			fmt.Printf("I: LDA ")
 			addr, _ := cpu.ZeroPage(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP)", addr)
+			fmt.Printf("%02x (ZP)", addr)
 
 			cpu.A = b
 
@@ -1040,7 +1040,7 @@ func main() {
 			fmt.Printf("I: LDA ")
 			addr, _ := cpu.ZeroPageX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP, X)", addr)
+			fmt.Printf("%02x (ZP, X)", addr)
 
 			cpu.A = b
 
@@ -1117,7 +1117,7 @@ func main() {
 			fmt.Printf("I: LDX ")
 			addr, _ := cpu.ZeroPage(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP)", addr)
+			fmt.Printf("%02x (ZP)", addr)
 
 			cpu.X = b
 
@@ -1128,7 +1128,7 @@ func main() {
 			fmt.Printf("I: LDX ")
 			addr, _ := cpu.ZeroPageY(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP, Y)", addr)
+			fmt.Printf("%02x (ZP, Y)", addr)
 
 			cpu.X = b
 
@@ -1172,7 +1172,7 @@ func main() {
 			fmt.Printf("I: LDY ")
 			addr, _ := cpu.ZeroPage(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP)", addr)
+			fmt.Printf("%02x (ZP)", addr)
 
 			cpu.Y = b
 
@@ -1183,7 +1183,7 @@ func main() {
 			fmt.Printf("I: LDY ")
 			addr, _ := cpu.ZeroPageX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%04x (ZP, Y)", addr)
+			fmt.Printf("%02x (ZP, Y)", addr)
 
 			cpu.Y = b
 
@@ -1275,8 +1275,8 @@ func main() {
 			// rotate left, a
 			fmt.Printf("I: ROL ")
 			fmt.Printf("%02x (A)", cpu.A)
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b7 := CPU.BitSet(cpu.A, CPU.Bit7)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b7 := CPU.BitTest(cpu.A, CPU.Bit7)
 			a := (cpu.A << 1)
 			if carry {
 				a++
@@ -1293,8 +1293,8 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := (b << 1)
 			if carry {
 				v++
@@ -1311,8 +1311,8 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP, X)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := (b << 1)
 			if carry {
 				v++
@@ -1329,8 +1329,8 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%04x (ABS)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := (b << 1)
 			if carry {
 				v++
@@ -1345,10 +1345,10 @@ func main() {
 			fmt.Printf("I: ROL ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := (b << 1)
 			if carry {
 				v++
@@ -1362,8 +1362,8 @@ func main() {
 			// rotate left, a
 			fmt.Printf("I: ROR ")
 			fmt.Printf("%02x (A)", cpu.A)
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b0 := CPU.BitSet(cpu.A, CPU.Bit0)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b0 := CPU.BitTest(cpu.A, CPU.Bit0)
 			v := (cpu.A >> 1)
 			if carry {
 				v |= 0b10000000 // bitset
@@ -1381,8 +1381,8 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b0 := CPU.BitSet(b, CPU.Bit0)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b0 := CPU.BitTest(b, CPU.Bit0)
 			v := (b >> 1)
 			if carry {
 				v |= 0b10000000 // bitset
@@ -1399,8 +1399,8 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP, X)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b0 := CPU.BitSet(b, CPU.Bit0)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b0 := CPU.BitTest(b, CPU.Bit0)
 			v := (b >> 1)
 			if carry {
 				v |= 0b10000000 // bitset
@@ -1416,8 +1416,8 @@ func main() {
 			addr, _ := cpu.Absolute(rom)
 			b, _ := rom.Get(addr)
 			fmt.Printf("%04x (ABS)", addr)
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b0 := CPU.BitSet(b, CPU.Bit0)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b0 := CPU.BitTest(b, CPU.Bit0)
 			v := b >> 1
 			if carry {
 				v |= 0b10000000 // bitset
@@ -1432,10 +1432,10 @@ func main() {
 			fmt.Printf("I: ROR ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
-			carry := CPU.BitSet(CPU.Carry, cpu.Status)
-			b0 := CPU.BitSet(b, CPU.Bit0)
+			carry := CPU.BitTest(CPU.Carry, cpu.Status)
+			b0 := CPU.BitTest(b, CPU.Bit0)
 			v := b >> 1
 			if carry {
 				v |= 0b10000000 // bitset
@@ -1450,7 +1450,7 @@ func main() {
 			fmt.Printf("I: ASL ")
 			fmt.Printf("%02x", cpu.A)
 
-			b7 := CPU.BitSet(cpu.A, CPU.Bit7)
+			b7 := CPU.BitTest(cpu.A, CPU.Bit7)
 			a := cpu.A << 1
 			cpu.A = a
 
@@ -1464,7 +1464,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP)", addr)
 
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			b = b << 1
 			rom.Set(addr, b)
 
@@ -1478,7 +1478,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP, X)", addr)
 
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := b << 1
 			rom.Set(addr, v)
 
@@ -1492,7 +1492,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%04x (ABS)", addr)
 
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := b << 1
 			rom.Set(addr, v)
 
@@ -1504,9 +1504,9 @@ func main() {
 			fmt.Printf("I: ASL ")
 			addr, _ := cpu.AbsoluteX(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (ABS, X)", addr)
+			fmt.Printf("%04x (ABS, X)", addr)
 
-			b7 := CPU.BitSet(b, CPU.Bit7)
+			b7 := CPU.BitTest(b, CPU.Bit7)
 			v := b << 1
 			rom.Set(addr, v)
 
@@ -1516,7 +1516,7 @@ func main() {
 		case CPU.LSR:
 			// logical shift right, a
 			fmt.Printf("I: LSR ")
-			carry := CPU.BitSet(CPU.Bit0, cpu.A)
+			carry := CPU.BitTest(CPU.Bit0, cpu.A)
 			cpu.A = cpu.A >> 1
 
 			cpu.SetStatus(CPU.Negative, CPU.IsNegative(cpu.A))
@@ -1532,7 +1532,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP)", addr)
 
-			carry := CPU.BitSet(CPU.Bit1, b)
+			carry := CPU.BitTest(CPU.Bit1, b)
 			b = b >> 1
 			rom.Set(addr, b)
 
@@ -1546,7 +1546,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%02x (ZP, X)", addr)
 
-			carry := CPU.BitSet(CPU.Bit1, b)
+			carry := CPU.BitTest(CPU.Bit1, b)
 			b = b >> 1
 			rom.Set(addr, b)
 
@@ -1560,7 +1560,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%04x (ABS)", addr)
 
-			carry := CPU.BitSet(CPU.Bit1, b)
+			carry := CPU.BitTest(CPU.Bit1, b)
 			b = b >> 1
 			rom.Set(addr, b)
 
@@ -1574,7 +1574,7 @@ func main() {
 			b, _ := rom.Get(addr)
 			fmt.Printf("%04x (ABS, X)", addr)
 
-			carry := CPU.BitSet(CPU.Bit1, b)
+			carry := CPU.BitTest(CPU.Bit1, b)
 			b = b >> 1
 			rom.Set(addr, b)
 

@@ -70,7 +70,7 @@ const (
 	Bit7 = 0b10000000
 )
 
-func BitSet(bit uint8, value uint8) bool {
+func BitTest(bit uint8, value uint8) bool {
 	b := value & bit
 	return b != 0
 }
@@ -81,9 +81,9 @@ func IsNegative(value uint8) bool {
 }
 
 func IsOverflow(prev uint8, current uint8) bool {
-	p7 := BitSet(Bit7, prev)
-	c7 := BitSet(Bit7, current)
-	return p7 == c7
+	p7 := BitTest(Bit7, prev)
+	c7 := BitTest(Bit7, current)
+	return p7 != c7
 }
 
 func New(
@@ -233,22 +233,22 @@ func (o *CPU) IndirectY(rom *Memory.Memory) (uint16, error) {
  */
 
 func (o *CPU) ADC(operand uint8) uint8 {
-	carry := BitSet(Carry, o.Status)
+	//get current carry flag
+	carry := BitTest(Carry, o.Status)
 	var c uint8 = 0
 	if carry {
 		c = 1
 	}
-	var sum int16 = int16(o.A + operand + c)
 
-	// shift off the lower 8 bits, if any remain, we have an overflow
-	carry = (sum >> 8) > 0
+	sum := int16(o.A) + int16(operand) + int16(c)
+	fmt.Printf("\n  ADC: %02x + %02x + %02x = %02x (%v)\n", o.A, operand, c, sum, sum)
 
 	a := uint8(sum & 0x00ff)
 
 	o.SetStatus(Negative, IsNegative(a))
 	o.SetStatus(Overflow, IsOverflow(o.A, a))
 	o.SetStatus(Zero, a == 0)
-	o.SetStatus(Carry, carry)
+	o.SetStatus(Carry, sum > 255)
 
 	o.A = a
 	return a
