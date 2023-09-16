@@ -58,7 +58,6 @@ start:
 
 ; expected result: $022A = 0x55
 test00:
-	; .byte $FF, $FE     ; DebugConsole
 	LDA #85				 ; $55
 	LDX #42        ; $2A
 	LDY #115       ; $73
@@ -74,7 +73,6 @@ test00:
 	LDA #$7E
 	LDA $56,X
 	STY $60					; 0060 = 73
-	; .byte $FF, $FE      ; DebugConsole ; $4070
 	STA ($60),Y     ; 01e6 = 55
 	LDA #$7E
 	LDA ($60),Y     ; $55
@@ -87,7 +85,6 @@ test00:
 	STA ($36,X)     ; 0060 = 55
 	LDA #$7E
 	LDA ($36,X)     ; correct up to here?
-	; .byte $FF,       ; Debug Console
 	STX $50
 	LDX $60
 	LDY $50					;
@@ -99,7 +96,6 @@ test00:
 	LDY $0914       ;
 	STY $2D,X       ;
 	STX $77,Y       ; 00a1 = 55
-	; .byte $FF, ; DebugConsole
 	LDY #$99
 	LDY $2D,X ;
 	LDX #$22
@@ -489,7 +485,6 @@ test06:
 	LDA #$A2 ;
 	STA $61 ;
 
-	; .byte $FF, $FE
 	LDA #$FF ;
 	ADC #$FF ; $FE
 	ADC #$FF ; $FE ; adds the carry
@@ -739,6 +734,7 @@ test09:
 bpl1:
 	LDY $00,X ;
 	BPL bpl2 ; taken
+	.byte $FF, $E0 ; should not reach
 	LDA #$05 ; not done
 	LDX $A1 ; not done
 bpl2:
@@ -748,6 +744,7 @@ bpl2:
 	SBC #$03 ;
 bmi1:
 	BMI bmi2 ; taken
+	.byte $FF, $E1 ; should not reach
 	LDA #$41 ; not done
 bmi2:
 
@@ -762,9 +759,10 @@ bvc1:
 	LDX $00,Y ;
 	ADC $51,X ;
 	BVC bvc2 ; taken
+	.byte $FF, $E2 ; should not reach
 	LDA #$E5 ; not done
 bvc2:
-	.byte $FF, $FD ; DebugConsole
+	.byte $FF, $FE ; DebugConsole
 	; BVS
 	ADC $40,X
 	BVS bvs1 ; not taken
