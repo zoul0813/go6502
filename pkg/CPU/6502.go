@@ -81,9 +81,8 @@ func IsNegative(value uint8) bool {
 }
 
 func IsOverflow(prev uint8, current uint8) bool {
-	p7 := BitTest(Bit7, prev)
-	c7 := BitTest(Bit7, current)
-	return p7 != c7
+	v := ((prev ^ current) & 0x80)
+	return v != 0
 }
 
 func New(
@@ -123,15 +122,16 @@ func (o *CPU) SetStatus(flag uint8, value bool) {
 
 func (o *CPU) Debug() {
 	// fmt.Printf("State: %v", o)
-	fmt.Print("\n\nPC    SP    A    X    Y    Status   \n")
-	fmt.Print("---------------------------NV-BDIZC-\n")
+	fmt.Print("\n\nPC    SP  A    X    Y    Status     \n")
+	fmt.Print("-------------------------NV-BDIZC- ($SS)\n")
 	//          PC    SP    A      X      Y      Status
-	fmt.Printf("%04x  %04x  %02x   %02x   %02x   %08b\n\n",
+	fmt.Printf("%04x  %02x  %02x   %02x   %02x   %08b  ($%02x)\n\n",
 		o.PC,
 		o.SP,
 		o.A,
 		o.X,
 		o.Y,
+		o.Status,
 		o.Status,
 	)
 }
@@ -233,22 +233,29 @@ func (o *CPU) IndirectY(rom *Memory.Memory) (uint16, error) {
  */
 
 func (o *CPU) ADC(operand uint8) uint8 {
-	//get current carry flag
-	carry := BitTest(Carry, o.Status)
-	var c uint8 = 0
-	if carry {
-		c = 1
+	overflow := true
+	if ((o.A ^ operand) & 0x80) > 0 {
+		overflow = false
 	}
 
-	sum := int16(o.A) + int16(operand) + int16(c)
-	fmt.Printf("\n  ADC: %02x + %02x + %02x = %02x (%v)\n", o.A, operand, c, sum, sum)
+	var carry uint8 = 0
+	if BitTest(Carry, o.Status) {
+		carry = 1
+	}
+
+	sum := int16(o.A) + int16(operand) + int16(carry)
+	fmt.Printf("\n  ADC: %02x + %02x + %02x = %02x (%v)\n", o.A, operand, carry, sum, sum)
 
 	a := uint8(sum & 0x00ff)
 
 	o.SetStatus(Negative, IsNegative(a))
-	o.SetStatus(Overflow, IsOverflow(o.A, a))
+
+	if overflow && sum < 0x80 {
+		overflow = false
+	}
+	o.SetStatus(Overflow, overflow)
 	o.SetStatus(Zero, a == 0)
-	o.SetStatus(Carry, sum > 255)
+	o.SetStatus(Carry, sum >= 0x100)
 
 	o.A = a
 	return a

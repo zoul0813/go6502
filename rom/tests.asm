@@ -3,15 +3,6 @@
 .word start     ; 0xfffc
 .word start     ; 0xfffe
 
-; .segment "DATA"
-; byte1:
-;   .byte $42, $43, $44, $45, $46, $47, $48, $49, $50, $51
-; byte2:
-;   .byte $20
-; word1:
-;   .word $0420
-;   .byte "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed pulvinar quam justo. Phasellus nec magna vulputate, lobortis justo non, rhoncus tortor. In dictum ac neque non mattis. Donec facilisis massa eu dolor aliquet, a sodales nulla condimentum. Proin viverra pretium euismod. Duis pretium sodales lacus ut pretium."
-
 .segment "CODE"
 
 start:
@@ -762,7 +753,6 @@ bvc1:
 	.byte $FF, $E2 ; should not reach
 	LDA #$E5 ; not done
 bvc2:
-	.byte $FF, $FE ; DebugConsole
 	; BVS
 	ADC $40,X
 	BVS bvs1 ; not taken
@@ -803,10 +793,155 @@ bcs2:
 	STA $0210
 	JMP theend
 
+; expected result: $30 = 0xCE
 test10:
-	LDA #$FF
-	LDX #$FF
-	LDY #$FF
+; RESET TO CARRY = 0 & OVERFLOW = 0
+	ADC #$00
+
+	LDA #$99
+	ADC #$87
+	CLC
+	NOP
+	BCC t10bcc1 ; taken
+	ADC #$60 ; not done
+	ADC #$93 ; not done
+t10bcc1:
+	SEC
+	NOP
+	BCC t10bcc2 ; not taken
+	CLV
+t10bcc2:
+	BVC t10bvc1 ; taken
+	LDA #$00 ; not done
+t10bvc1:
+	ADC #$AD
+	NOP
+	STA $30
+
+	.byte $FF, $0A ; expected result: $30 = 0xCE
+; CHECK test10
+	LDA $30
+	CMP $020A
+	BEQ test11
+	LDA #$0A
+	STA $0210
+	JMP theend
+
+; expected result: $30 = 0x29
+test11:
+	; .byte $FF, $F0
+; RESET TO CARRY = 0 & ZERO = 0
+	ADC #$01 ;
+
+	LDA #$27 ;
+	ADC #$01 ;
+	SEC ;
+	PHP ;
+	CLC ;
+	PLP ;
+	ADC #$00
+	PHA
+	LDA #$00
+	PLA
+	STA $30
+	.byte $FF, $0B ; expected result: $30 = 0x29
+; CHECK test11
+	LDA $30
+	CMP $020B
+	BEQ test12
+	LDA #$0B
+	STA $0210
+	JMP theend
+
+; expected result: $33 = 0x42
+test12:
+	; .byte $FF, $F1
+	CLC
+	LDA #$42
+	BCC runstuff
+	STA $33
+	BCS t12end
+runstuff:
+	LDA #>(test12+1) ;; by 3 if we debug
+	PHA
+	LDA #<(test12+1) ;; by 3 if we debug
+	PHA
+	SEC
+	PHP
+	CLC
+	RTI
+t12end:
+.byte $FF, $0C ; expected result: $33 = 0x42
+; CHECK test12
+	LDA $33
+	CMP $020C ;; $42
+	BEQ test13
+	LDA #$0C
+	STA $0210
+	JMP theend
+
+; expected result: $21 = 0x6C (simulator)
+;                  $21 = 0x0C (ours)
+test13:
+
+; RESET TO CARRY = 0 & ZERO = 0
+	ADC #$01
+
+	SEI
+	SED
+	PHP
+	PLA
+	STA $20
+	CLI
+	CLD
+	PHP
+	PLA
+	ADC $20
+	STA $21
+.byte $FF, $0D ; expected result: $21 = 0x6C (simulator)
+;                  								$21 = 0x0C (ours)
+; CHECK test13
+	LDA $21
+	CMP $020D
+	BEQ test14
+	LDA #$0D
+	STA $0210
+	JMP theend
+
+; expect result: $60 = 0x42
+test14:
+	; !!! NOTICE: BRK doesn't work in this
+	; simulator, so commented instructions
+	; are what should be executed...
+	;JMP pass_intrp
+	LDA #$41
+	STA $60
+	;RTI
+	;pass_intrp:
+	;LDA #$FF
+	;STA $60
+	;BRK (two bytes)
+	INC $60
+
+.byte $FF, $0E ; expect result: $60 = 0x42
+; CHECK test14
+	LDA $60
+	CMP $020E
+	BEQ suiteafinal
+	LDA #$0E
+	STA $0210
+	JMP theend
+
+suiteafinal:
+	; IF $0210 == 0xFE, INCREMENT
+	; (checking that it didn't
+	;  happen to wander off and
+	;  not run our instructions
+	;  to say which tests failed...)
+	LDA #$FE
+	CMP $0210
+	BNE theend
+	INC $0210
 
 theend:
 	; EXPECTED FINAL RESULTS: $0210 = FF

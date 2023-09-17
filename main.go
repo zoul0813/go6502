@@ -34,11 +34,11 @@ func main() {
 
 	cpu := CPU.New(
 		0xfffc,     // PC
-		0x00,       // SP
+		0xFF,       // SP
 		0x00,       // A
 		0xf0,       // X
 		0xFE,       // Y
-		0b00000000, // Status
+		0b00110000, // Status
 		false,      // Single Step
 	)
 
@@ -102,14 +102,15 @@ func main() {
 		case CPU.RTI:
 			fmt.Printf("I: RTI ")
 			fmt.Printf("(Implied)")
-			status, _ := rom.Get(STACK_HEAD + uint16(cpu.SP))
 			cpu.SP++
+			status, _ := rom.Get(STACK_HEAD + uint16(cpu.SP))
 			cpu.Status = status
+			cpu.SP++
 			lo, _ := rom.Get(STACK_HEAD + uint16(cpu.SP))
 			cpu.SP++
 			hi, _ := rom.Get(STACK_HEAD + uint16(cpu.SP))
-			cpu.SP++
 			var addr uint16 = (uint16(hi) << 8) | uint16(lo)
+			fmt.Printf(" RTI: %02x %02x %02x %04x \n", status, lo, hi, addr)
 			cpu.PC = addr
 		case CPU.BPL:
 			// branch on plus
@@ -1106,7 +1107,7 @@ func main() {
 			fmt.Printf("I: LDX ")
 			addr, _ := cpu.Immediate(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Immediate))", b)
+			fmt.Printf("%02x (Immediate)", b)
 
 			cpu.X = b
 
@@ -1161,7 +1162,7 @@ func main() {
 			fmt.Printf("I: LDY ")
 			addr, _ := cpu.Immediate(rom)
 			b, _ := rom.Get(addr)
-			fmt.Printf("%02x (Immediate))", b)
+			fmt.Printf("%02x (Immediate)", b)
 
 			cpu.Y = b
 
@@ -1623,25 +1624,25 @@ func main() {
 		case CPU.PHA:
 			// push accumulater
 			fmt.Printf("I: PHA ")
-			cpu.SP--
 			rom.Set(STACK_HEAD+uint16(cpu.SP), cpu.A)
+			cpu.SP--
 		case CPU.PLA:
 			// pull accumulater
 			fmt.Printf("I: PLA ")
+			cpu.SP++
 			a, _ := rom.Get(STACK_HEAD + uint16(cpu.SP))
 			cpu.A = a
-			cpu.SP++
 		case CPU.PHP:
 			// push status to stack
 			fmt.Printf("I: PHP ")
-			cpu.SP--
 			rom.Set(STACK_HEAD+uint16(cpu.SP), cpu.Status)
+			cpu.SP--
 		case CPU.PLP:
 			// pull status from stack
 			fmt.Printf("I: PLP ")
+			cpu.SP++
 			status, _ := rom.Get(STACK_HEAD + uint16(cpu.SP))
 			cpu.Status = status
-			cpu.SP++
 
 		case CPU.DEBUG:
 			fmt.Print("I: DEBUG ")

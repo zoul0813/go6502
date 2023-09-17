@@ -1,14 +1,14 @@
 #!/bin/sh
 
-rm -rf suite.o suite.bin suite.dbg suite.*.txt
+rm -rf rom.o rom.bin rom.dbg rom.*.txt
 
-ca65 tests.asm -g -o rom.o
-ld65 -o rom.bin -C tests.cfg rom.o -m suite.map.txt -Ln suite.labels.txt --dbgfile suite.dbg
+ca65 AllSuiteA.asm -g -o suite.o
+ld65 -o suite.bin -C tests.cfg suite.o -m tests.map.txt -Ln tests.labels.txt --dbgfile tests.dbg
 
 echo ""
 echo ""
 echo "Hex Dump"
 echo "------------------------------------------------------------------------------"
-hexdump -C rom.bin
+hexdump -C suite.bin
 echo "------------------------------------------------------------------------------"
 echo ""
