@@ -1,3 +1,3 @@
 #!/bin/sh
 
-go build . && ./go6502
+go build -o bin/go6502 && ./bin/go6502

@@ -55,7 +55,13 @@ type CPU struct {
 	SingleStep bool
 
 	Address uint16
+
+	DebugMode bool
+	halted    bool
 }
+
+const ZP_HEAD = 0x000
+const STACK_HEAD = 0x100
 
 // Utility Functions
 
@@ -93,6 +99,7 @@ func New(
 	Y uint8,
 	Status uint8,
 	SingleStep bool,
+	DebugMode bool,
 ) *CPU {
 	return &CPU{
 		PC:         PC,
@@ -102,26 +109,1649 @@ func New(
 		Y:          Y,
 		Status:     Status,
 		SingleStep: SingleStep,
+		DebugMode:  DebugMode,
 	}
+}
+
+func (o *CPU) Step(rom *Memory.Memory) (bool, error) {
+	halted := false
+	b, _ := rom.Get(o.PC)
+	var instr OpCode = OpCode(b)
+	o.PC++ // increment the stack pointer
+	o.Log("Instruction: %02x\n", instr)
+	switch instr {
+	// Jump/Branch Instructions
+	case JMP_A:
+		// jump absolute
+		o.Log("I: JMP ")
+		addr, _ := o.Absolute(rom)
+		o.Log("%04x (ABS)", addr)
+		o.PC = addr
+	case JMP_IN:
+		// jump indirect
+		o.Log("I: JMP ")
+		// from, _ := rom.GetWord(o.PC)
+		// addr, _ := rom.GetWord(from)
+		addr, _ := o.Indirect(rom)
+		o.Log("%04x (Indirect)", addr)
+		o.PC = addr
+	case JSR_A:
+		// jump to subroute, absolute
+		o.Log("I: JSR ")
+		// addr, _ := rom.GetWord(o.PC) // jump to here
+		// o.PC += 2
+		addr, _ := o.Absolute(rom)
+		o.Log("%04x (ABS)", addr)
+
+		pc := o.PC - 1
+		var lo uint8 = uint8(pc & 0b0000000011111111)
+		var hi uint8 = uint8(pc >> 8)
+
+		o.SP--
+		rom.Set(STACK_HEAD+uint16(o.SP), hi)
+		o.SP--
+		rom.Set(STACK_HEAD+uint16(o.SP), lo)
+
+		o.PC = addr
+	case RTS:
+		o.Log("I: RTS ")
+		o.Log("(Implied)")
+		lo, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.SP++
+		hi, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.SP++
+		var addr uint16 = (uint16(hi) << 8) | uint16(lo)
+		o.PC = addr + 1
+	case RTI:
+		o.Log("I: RTI ")
+		o.Log("(Implied)")
+		o.SP++
+		status, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.Status = status
+		o.SP++
+		lo, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.SP++
+		hi, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		var addr uint16 = (uint16(hi) << 8) | uint16(lo)
+		o.Log(" RTI: %02x %02x %02x %04x \n", status, lo, hi, addr)
+		o.PC = addr
+	case BPL:
+		// branch on plus
+		o.Log("I: BPL ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		neg := BitTest(Negative, o.Status)
+		if !neg {
+			o.PC += uint16(rel)
+		}
+	case BMI:
+		// branch on minus
+		o.Log("I: BMI ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		neg := BitTest(Negative, o.Status)
+		if neg {
+			o.PC += uint16(rel)
+		}
+	case BVC:
+		// branch on overflow clear
+		o.Log("I: BVC ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		overflow := BitTest(Overflow, o.Status)
+		if !overflow {
+			o.PC += uint16(rel)
+		}
+	case BVS:
+		// branch on overflow set
+		o.Log("I: BVS ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		overflow := BitTest(Overflow, o.Status)
+		if overflow {
+			o.PC += uint16(rel)
+		}
+	case BCC:
+		// branch on carry clear
+		o.Log("I: BCC ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		carry := BitTest(Carry, o.Status)
+		if !carry {
+			o.PC += uint16(rel)
+		}
+	case BCS:
+		// branch on carry set
+		o.Log("I: BCS ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		carry := BitTest(Carry, o.Status)
+		if carry {
+			o.PC += uint16(rel)
+		}
+	case BNE:
+		// branch on not equal
+		o.Log("I: BNE ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		zero := BitTest(Zero, o.Status)
+		if !zero {
+			o.PC += uint16(rel)
+		}
+	case BEQ:
+		// branch on equal
+		o.Log("I: BEQ ")
+		rel, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Rel)", rel)
+		zero := BitTest(Zero, o.Status)
+		if zero {
+			o.PC += uint16(rel)
+		}
+
+	// Misc
+	case BRK: // TODO: NMI
+		// break
+		o.Log("I: BRK ")
+		// TODO: non-maskable interrupt
+		o.PC += 2
+	case NOP:
+		o.Log("I: NOP")
+
+	// Add (ADC)
+	case ADC_I:
+		// add with carry, immediate
+		o.Log("I: ADC ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_ZP:
+		// add with carry, zero page
+		o.Log("I: ADC ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_ZPX:
+		// add with carry, zero page, x
+		o.Log("I: ADC ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_A:
+		// add with carry, absolute
+		o.Log("I: ADC ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_AX:
+		// add with carry, absolute, x
+		o.Log("I: ADC ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_AY:
+		// add with carry, absolute, y
+		o.Log("I: ADC ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_INX:
+		// add with carry, indirect, x
+		o.Log("I: ADC ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+
+		o.ADC(b)
+		// N V Z C
+	case ADC_INY:
+		// add with carry, indirect, y
+		o.Log("I: ADC ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, Y)", addr)
+
+		o.ADC(b)
+		// N V Z C
+
+	// Subtract (SBC)
+	case SBC_I:
+		// subtract with carry, immediate
+		o.Log("I: SBC ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_ZP:
+		// subtract with carry, zero page
+		o.Log("I: SBC ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_ZPX:
+		// subtract with carry, zero page, x
+		o.Log("I: SBC ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_A:
+		// subtract with carry, absolute
+		o.Log("I: SBC ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_AX:
+		// subtract with carry, absolute, x
+		o.Log("I: SBC ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_AY:
+		// subtract with carry, absolute, y
+		o.Log("I: SBC ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_INX:
+		// subtract with carry, indirect, x
+		o.Log("I: SBC ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+
+		o.SBC(b)
+		// N V Z C
+	case SBC_INY:
+		// subtract with carry, indirect, y
+		o.Log("I: SBC ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, Y)", addr)
+
+		o.SBC(b)
+		// N V Z C
+
+	// Compare (A, X, Y)
+	case CMP_I:
+		// compare accumulator
+		o.Log("I: CMP ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_ZP:
+		// compare accumulator, zero page
+		o.Log("I: CMP ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_ZPX:
+		// compare accumulator, zero page, x
+		o.Log("I: CMP ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_A:
+		// compare accumulator, absolute
+		o.Log("I: CMP ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_AX:
+		// compare accumulator, absolute, x
+		o.Log("I: CMP ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_AY:
+		// compare accumulator, absolute, y
+		o.Log("I: CMP ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_INX:
+		// compare accumulator, indirect, x
+		o.Log("I: CMP ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CMP_INY:
+		// compare accumulator, indirect y
+		o.Log("I: CMP ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+
+		o.Log("%04x (Indirect, Y)", addr)
+
+		a := o.A
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.A == b)
+		o.SetStatus(Carry, o.A >= b)
+	case CPX:
+		// compare x
+		o.Log("I: CPX ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		a := o.X
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.X == b)
+		o.SetStatus(Carry, o.X >= b)
+	case CPX_ZP:
+		// compare x, zero page
+		o.Log("I: CPX ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		a := o.X
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.X == b)
+		o.SetStatus(Carry, o.X >= b)
+	case CPX_A:
+		// compare x, absolute
+		o.Log("I: CPX ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		a := o.X
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.X == b)
+		o.SetStatus(Carry, o.X >= b)
+	case CPY:
+		// compare y
+		o.Log("I: CPY ")
+		v, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (Immediate)", v)
+		a := o.Y
+		r := a - v // actually do the math, so we can determine if it's negative
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.Y == v)
+		o.SetStatus(Carry, o.Y >= v)
+	case CPY_ZP:
+		// compare x, zero page
+		o.Log("I: CPY ")
+		zp, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (ZP)", zp)
+		v, _ := rom.Get(uint16(zp))
+		a := o.Y
+		r := a - v // actually do the math, so we can determine if it's negative
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.Y == v)
+		o.SetStatus(Carry, o.Y >= v)
+	case CPY_A:
+		// compare x, absolute
+		o.Log("I: CPY ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		a := o.Y
+		r := a - b // actually do the math, so we can determine if it's negative
+
+		o.SetStatus(Negative, IsNegative(r))
+		o.SetStatus(Zero, o.Y == b)
+		o.SetStatus(Carry, o.Y >= b)
+
+	// AND
+	case AND_I:
+		// and with a
+		o.Log("I: AND ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_ZP:
+		// and with a, zero page
+		o.Log("I: AND ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_ZPX:
+		// and with a, zero page, x
+		o.Log("I: AND ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_A:
+		// and with a, absolute
+		o.Log("I: AND ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_AX:
+		// and with a, absolute, x
+		o.Log("I: AND ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_AY:
+		// and with a, absolute, y
+		o.Log("I: AND ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_INX:
+		// and with a, indirect, x
+		o.Log("I: AND ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case AND_INY:
+		// and with a, indirect, y
+		o.Log("I: AND ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, Y)", addr)
+
+		o.A &= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+
+	// EOR
+	case EOR_I:
+		// exclusive or, immediate
+		o.Log("I: EOR ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_ZP:
+		// exclusive or, zero page
+		o.Log("I: EOR ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_ZPX:
+		// exclusive or, zeor page, x
+		o.Log("I: EOR ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_A:
+		// exclusive or, absolute
+		o.Log("I: EOR ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_AX:
+		// exclusive or, absolute, x
+		o.Log("I: EOR ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_AY:
+		// exclusive or, absolute, y
+		o.Log("I: EOR ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_INX:
+		// exclusive or, indirect, x
+		o.Log("I: EOR ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case EOR_INY:
+		// exclusive or, indirect, y
+		o.Log("I: EOR ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, Y)", addr)
+		o.A ^= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+
+		// ORA
+	case ORA_I:
+		// exclusive or, immediate
+		o.Log("I: ORA ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_ZP:
+		// exclusive or, zero page
+		o.Log("I: ORA ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_ZPX:
+		// exclusive or, zeor page, x
+		o.Log("I: ORA ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_A:
+		// exclusive or, absolute
+		o.Log("I: ORA ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_AX:
+		// exclusive or, absolute, x
+		o.Log("I: ORA ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_AY:
+		// exclusive or, absolute, y
+		o.Log("I: ORA ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_INX:
+		// exclusive or, indirect, x
+		o.Log("I: ORA ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+	case ORA_INY:
+		// exclusive or, indirect, y
+		o.Log("I: ORA ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, Y)", addr)
+
+		o.A |= b
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+
+	// Store Instructions (STA, STX, STY)
+	case STA_ZP:
+		// store a, zero page
+		o.Log("I: STA ")
+		addr, _ := o.ZeroPage(rom)
+		o.Log("%02x (ZP)", addr)
+
+		rom.Set(addr, o.A)
+	case STA_ZPX:
+		// store a, zero page, x
+		o.Log("I: STA ")
+		addr, _ := o.ZeroPageX(rom)
+		o.Log("%02x (ZP, X)", addr)
+
+		rom.Set(addr, o.A)
+	case STA_A:
+		// store a, zero page, x
+		o.Log("I: STA ")
+		addr, _ := o.Absolute(rom)
+		o.Log("%04x (ABS)", addr)
+
+		rom.Set(addr, o.A)
+	case STA_AX:
+		// store a, zero page, x
+		o.Log("I: STA ")
+		addr, _ := o.AbsoluteX(rom)
+		o.Log("%04x (ABS, X)", addr)
+
+		rom.Set(addr, o.A)
+	case STA_AY:
+		// store a, zero page, x
+		o.Log("I: STA ")
+		addr, _ := o.AbsoluteY(rom)
+		o.Log("%04x (ABS, Y)", addr)
+
+		rom.Set(addr, o.A)
+	case STA_INX: // store a, indirect, x
+		o.Log("I: STA ")
+		addr, _ := o.IndirectX(rom)
+		o.Log("%04x (Indirect, X)", addr)
+
+		rom.Set(addr, o.A)
+	case STA_INY: // store a, indirect, y
+		o.Log("I: STA ")
+		addr, _ := o.IndirectY(rom)
+		o.Log("%04x (Indirect, Y)", addr)
+
+		rom.Set(addr, o.A)
+	case STX_ZP:
+		// store a, zero page
+		o.Log("I: STX ")
+		addr, _ := o.ZeroPage(rom)
+		o.Log("%02x (ZP)", addr)
+
+		rom.Set(addr, o.X)
+	case STX_ZPY:
+		// store a, zero page, y
+		o.Log("I: STY ")
+		addr, _ := o.ZeroPageY(rom)
+		o.Log("%02x (ZP, Y)", addr)
+
+		rom.Set(addr, o.X)
+	case STX_A:
+		// store a, zero page, x
+		o.Log("I: STX ")
+		addr, _ := o.Absolute(rom)
+		o.Log("%04x (ABS)", addr)
+
+		rom.Set(addr, o.X)
+	case STY_ZP:
+		// store a, zero page
+		o.Log("I: STY ")
+		addr, _ := o.ZeroPage(rom)
+		o.Log("%02x (ZP)", addr)
+
+		rom.Set(addr, o.Y)
+	case STY_ZPX:
+		// store a, zero page, x
+		o.Log("I: STY ")
+		addr, _ := o.ZeroPageX(rom)
+		o.Log("%02x (ZP, X)", addr)
+
+		rom.Set(addr, o.Y)
+	case STY_A:
+		// store a, zero page, x
+		o.Log("I: STY ")
+		addr, _ := o.Absolute(rom)
+		o.Log("%04x (ABS)", addr)
+
+		rom.Set(addr, o.Y)
+
+	// INC/DEC Instructions
+	case INC_ZP:
+		// increment zero page
+		o.Log("I: INC ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		b++
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case INC_ZPX:
+		// increment zero page, x
+		o.Log("I: INC ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		b++
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case INC_A:
+		// increment absolute
+		o.Log("I: INC ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		b++
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case INC_AX:
+		// increment absolute, x
+		o.Log("I: INC ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		b++
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case DEC_ZP:
+		// increment zero page
+		o.Log("I: DEC ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		b--
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case DEC_ZPX:
+		// increment zero page, x
+		o.Log("I: DEC ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		b--
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case DEC_A:
+		// increment absolute
+		o.Log("I: DEC ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		b--
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case DEC_AX:
+		// increment absolute, x
+		o.Log("I: DEC ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		b--
+		rom.Set(addr, b)
+
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case INX:
+		// increment x
+		o.Log("I: INX ")
+		o.X++
+		o.SetStatus(Zero, o.X == 0)
+		// o.SetStatus(Overflow, o.X < x)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case DEX:
+		// increment x
+		o.Log("I: DEX ")
+		o.X--
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case INY:
+		// increment y
+		o.Log("I: INY ")
+		o.Y++
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+	case DEY:
+		// increment y
+		o.Log("I: INY ")
+		o.Y--
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+
+	// Load Register Instructions
+	case LDA_I:
+		// load A immediate
+		o.Log("I: LDA ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_ZP:
+		// load A zero page
+		o.Log("I: LDA ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_ZPX:
+		// load A zero page, x index
+		o.Log("I: LDA ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_A:
+		// load A absolute
+		o.Log("I: LDA ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_AX:
+		// load A absolute, x
+		o.Log("I: LDA ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_AY:
+		// load A absolute, y
+		o.Log("I: LDA ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_INX:
+		// load A x index, indirect
+		o.Log("I: LDA ")
+		addr, _ := o.IndirectX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, X)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDA_INY:
+		// load A indirect, y index
+		o.Log("I: LDA ")
+		addr, _ := o.IndirectY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (Indirect, Y)", addr)
+
+		o.A = b
+
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case LDX_I:
+		// load X immediate
+		o.Log("I: LDX ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.X = b
+
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case LDX_ZP:
+		// load X zero page
+		o.Log("I: LDX ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.X = b
+
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case LDX_ZPY:
+		// load X zero page, y index
+		o.Log("I: LDX ")
+		addr, _ := o.ZeroPageY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, Y)", addr)
+
+		o.X = b
+
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case LDX_A:
+		// load X absolute
+		o.Log("I: LDX ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.X = b
+
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case LDX_AY:
+		// load X absolute, y index
+		o.Log("I: LDX ")
+		addr, _ := o.AbsoluteY(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, Y)", addr)
+
+		o.X = b
+
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case LDY_I:
+		// load Y immediate
+		o.Log("I: LDY ")
+		addr, _ := o.Immediate(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (Immediate)", b)
+
+		o.Y = b
+
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+	case LDY_ZP:
+		// load Y zero page
+		o.Log("I: LDY ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		o.Y = b
+
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+	case LDY_ZPX:
+		// load Y zero page, x index
+		o.Log("I: LDY ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, Y)", addr)
+
+		o.Y = b
+
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+	case LDY_A:
+		// load Y absolute
+		o.Log("I: LDY ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		o.Y = b
+
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+	case LDY_AX:
+		// load Y absolute, x index
+		o.Log("I: LDY ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		o.Y = b
+
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+
+	// Register Transfer Instructions
+	case TAX:
+		// transfer a to x
+		o.Log("I: TAX ")
+		o.X = o.A
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
+	case TXA:
+		// transfer x to a
+		o.Log("I: TXA ")
+		o.A = o.X
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+	case TAY:
+		// transfer a to y
+		o.Log("I: TAY ")
+		o.Y = o.A
+		o.SetStatus(Zero, o.Y == 0)
+		o.SetStatus(Negative, IsNegative(o.Y))
+	case TYA:
+		// transfer y to a
+		o.Log("I: TYA ")
+		o.A = o.Y
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
+
+	// Status Instructions
+	case CLC:
+		// clear carry
+		o.Log("I: CLC ")
+		o.SetStatus(Carry, false)
+	case SEC:
+		// set carry
+		o.Log("I: SEC ")
+		o.SetStatus(Carry, true)
+	case CLI:
+		// clear interrupt
+		o.Log("I: CLI ")
+		o.SetStatus(Interrupt, false)
+	case SEI:
+		// set interrupt
+		o.Log("I: SEI ")
+		o.SetStatus(Interrupt, true)
+	case CLV:
+		// clear overflow
+		o.Log("I CLV ")
+		o.SetStatus(Overflow, false)
+	case CLD:
+		// clear decimal
+		o.Log("I CLD ")
+		o.SetStatus(Decimal, false)
+	case SED:
+		// set decimal
+		o.Log("I SED ")
+		o.SetStatus(Decimal, true)
+		o.Log("Not yet implemented ... ")
+		o.SetStatus(Decimal, true)
+
+	// Bit Shift Instructions
+	case ROL:
+		// rotate left, a
+		o.Log("I: ROL ")
+		o.Log("%02x (A)", o.A)
+		carry := BitTest(Carry, o.Status)
+		b7 := BitTest(o.A, Bit7)
+		a := (o.A << 1)
+		if carry {
+			a++
+		}
+		o.A = a
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ROL_ZP:
+		// rotate left, zerp page
+		o.Log("I: ROL ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b7 := BitTest(b, Bit7)
+		v := (b << 1)
+		if carry {
+			v++
+		}
+		rom.Set(uint16(b), v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ROL_ZPX:
+		// rotate left, zerp page, x
+		o.Log("I: ROL ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b7 := BitTest(b, Bit7)
+		v := (b << 1)
+		if carry {
+			v++
+		}
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ROL_A:
+		// rotate left, absolute
+		o.Log("I: ROL ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b7 := BitTest(b, Bit7)
+		v := (b << 1)
+		if carry {
+			v++
+		}
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ROL_AX:
+		// rotate left, absolute, x
+		o.Log("I: ROL ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b7 := BitTest(b, Bit7)
+		v := (b << 1)
+		if carry {
+			v++
+		}
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ROR:
+		// rotate left, a
+		o.Log("I: ROR ")
+		o.Log("%02x (A)", o.A)
+		carry := BitTest(Carry, o.Status)
+		b0 := BitTest(o.A, Bit0)
+		v := (o.A >> 1)
+		if carry {
+			v |= 0b10000000 // bitset
+		}
+		o.A = v
+		o.Log(" %08b", v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b0)
+	case ROR_ZP:
+		// rotate left, zerp page
+		o.Log("I: ROR ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b0 := BitTest(b, Bit0)
+		v := (b >> 1)
+		if carry {
+			v |= 0b10000000 // bitset
+		}
+		rom.Set(uint16(b), v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b0)
+	case ROR_ZPX:
+		// rotate left, zerp page, x
+		o.Log("I: ROR ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b0 := BitTest(b, Bit0)
+		v := (b >> 1)
+		if carry {
+			v |= 0b10000000 // bitset
+		}
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b0)
+	case ROR_A:
+		// rotate left, absolute
+		o.Log("I: ROR ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+		carry := BitTest(Carry, o.Status)
+		b0 := BitTest(b, Bit0)
+		v := b >> 1
+		if carry {
+			v |= 0b10000000 // bitset
+		}
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b0)
+	case ROR_AX:
+		// rotate left, absolute, x
+		o.Log("I: ROR ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		carry := BitTest(Carry, o.Status)
+		b0 := BitTest(b, Bit0)
+		v := b >> 1
+		if carry {
+			v |= 0b10000000 // bitset
+		}
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b0)
+	case ASL:
+		// arithmetic shift left, a
+		o.Log("I: ASL ")
+		o.Log("%02x", o.A)
+
+		b7 := BitTest(o.A, Bit7)
+		a := o.A << 1
+		o.A = a
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ASL_ZP:
+		// arithmetic shift left, zero page
+		o.Log("I: ASL ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		b7 := BitTest(b, Bit7)
+		b = b << 1
+		rom.Set(addr, b)
+
+		o.SetStatus(Negative, IsNegative(b))
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Carry, b7)
+	case ASL_ZPX:
+		// arithmetic shift left, zero page, x
+		o.Log("I: ASL ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		b7 := BitTest(b, Bit7)
+		v := b << 1
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ASL_A:
+		// arithmetic shift left, absolute
+		o.Log("I: ROL ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		b7 := BitTest(b, Bit7)
+		v := b << 1
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case ASL_AX:
+		// arithmetic shift left, absolute, x
+		o.Log("I: ASL ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		b7 := BitTest(b, Bit7)
+		v := b << 1
+		rom.Set(addr, v)
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, b7)
+	case LSR:
+		// logical shift right, a
+		o.Log("I: LSR ")
+		carry := BitTest(Bit0, o.A)
+		o.A = o.A >> 1
+
+		o.SetStatus(Negative, IsNegative(o.A))
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Carry, carry)
+	case LSR_ZP:
+		// logical shift right, zero page
+		o.Log("I: LSR ")
+		// zp, _ := rom.Get(o.PC)
+		// o.PC++
+		// b, _ := rom.Get(uint16(zp))
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		carry := BitTest(Bit1, b)
+		b = b >> 1
+		rom.Set(addr, b)
+
+		o.SetStatus(Negative, IsNegative(b))
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Carry, carry)
+	case LSR_ZPX:
+		// logical shift right, zero page
+		o.Log("I: LSR ")
+		addr, _ := o.ZeroPageX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP, X)", addr)
+
+		carry := BitTest(Bit1, b)
+		b = b >> 1
+		rom.Set(addr, b)
+
+		o.SetStatus(Negative, IsNegative(b))
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Carry, carry)
+	case LSR_A:
+		// logical shift right, absolute
+		o.Log("I: LSR ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		carry := BitTest(Bit1, b)
+		b = b >> 1
+		rom.Set(addr, b)
+
+		o.SetStatus(Negative, IsNegative(b))
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Carry, carry)
+	case LSR_AX:
+		// logical shift right, absolute, x
+		o.Log("I: LSR ")
+		addr, _ := o.AbsoluteX(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS, X)", addr)
+
+		carry := BitTest(Bit1, b)
+		b = b >> 1
+		rom.Set(addr, b)
+
+		o.SetStatus(Negative, IsNegative(b))
+		o.SetStatus(Zero, b == 0)
+		o.SetStatus(Carry, carry)
+	case BIT_ZP:
+		// bit zero page
+		o.Log("I: BIT ")
+		addr, _ := o.ZeroPage(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%02x (ZP)", addr)
+
+		a := o.A
+		v := a & b
+
+		o.SetStatus(Overflow, IsOverflow(b, v))
+		o.SetStatus(Zero, v == 0)
+		o.SetStatus(Negative, IsNegative(b))
+	case BIT_A:
+		// bit absolute
+		o.Log("I: BIT ")
+		addr, _ := o.Absolute(rom)
+		b, _ := rom.Get(addr)
+		o.Log("%04x (ABS)", addr)
+
+		a := o.A
+		v := a & b
+
+		o.SetStatus(Overflow, IsOverflow(b, v))
+		o.SetStatus(Zero, v == 0)
+		o.SetStatus(Negative, IsNegative(b))
+
+	// Stack Instructions
+	case TXS:
+		// transfer x to stack
+		o.Log("I: TXS ")
+		o.SP--
+		rom.Set(STACK_HEAD+uint16(o.SP), o.X)
+	case TSX:
+		// transfer stack to x
+		o.Log("I: TSX ")
+		x, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.X = x
+		o.SP++
+	case PHA:
+		// push accumulater
+		o.Log("I: PHA ")
+		rom.Set(STACK_HEAD+uint16(o.SP), o.A)
+		o.SP--
+	case PLA:
+		// pull accumulater
+		o.Log("I: PLA ")
+		o.SP++
+		a, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.A = a
+	case PHP:
+		// push status to stack
+		o.Log("I: PHP ")
+		rom.Set(STACK_HEAD+uint16(o.SP), o.Status)
+		o.SP--
+	case PLP:
+		// pull status from stack
+		o.Log("I: PLP ")
+		o.SP++
+		status, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		o.Status = status
+
+	case DEBUG:
+		o.Log("I: DEBUG ")
+		bp, _ := rom.Get(o.PC)
+		o.PC++
+		o.Log("%02x (halted)", bp)
+		halted = true
+		fmt.Printf("HALTED\n")
+	}
+
+	o.Log("\n") // always end the instructions debug lines
+	o.halted = halted
+	return halted, nil // TODO: return errors?
+}
+
+func (o *CPU) IsHalted() bool {
+	return o.halted
 }
 
 func (o *CPU) SetStatus(flag uint8, value bool) {
 	var status uint8
 	if value {
-		// cpu.Status |= 0b00000001 // bitset
+		// o.Status |= 0b00000001 // bitset
 		status = o.Status | flag
 	} else {
-		// cpu.Status &^ 0b01000000 // bitclear
+		// o.Status &^ 0b01000000 // bitclear
 		status = o.Status &^ flag
 	}
 
-	// fmt.Printf(" Status: %08b > %08b | %08b %v", o.Status, status, flag, value)
+	//o.Log(" Status: %08b > %08b | %08b %v", o.Status, status, flag, value)
 
 	o.Status = status
 }
 
+func (o *CPU) Log(format string, a ...any) {
+	if !o.DebugMode && !o.SingleStep {
+		return
+	}
+	fmt.Printf(format, a...)
+}
+
 func (o *CPU) Debug() {
-	// fmt.Printf("State: %v", o)
+	if !o.DebugMode {
+		return
+	}
+	//o.Log("State: %v", o)
 	fmt.Print("\n\nPC    SP  A    X    Y    Status     \n")
 	fmt.Print("-------------------------NV-BDIZC- ($SS)\n")
 	//          PC    SP    A      X      Y      Status
@@ -244,7 +1874,7 @@ func (o *CPU) ADC(operand uint8) uint8 {
 	}
 
 	sum := int16(o.A) + int16(operand) + int16(carry)
-	fmt.Printf("\n  ADC: %02x + %02x + %02x = %02x (%v)\n", o.A, operand, carry, sum, sum)
+	o.Log("\n  ADC: %02x + %02x + %02x = %02x (%v)\n", o.A, operand, carry, sum, sum)
 
 	a := uint8(sum & 0x00ff)
 

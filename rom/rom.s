@@ -9,6 +9,5 @@
 start:
 	LDA #$07
 	ADC #$87
-
-
 	.byte $FF, $F0
+	JMP start

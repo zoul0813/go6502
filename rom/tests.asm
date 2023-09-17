@@ -96,7 +96,7 @@ test00:
 	LDX #$22
 	LDX $08A1,Y
 	STA $0200,X
-	.byte $FF, $00 ; expected result: $022A = 0x55
+	; .byte $FF, $00 ; expected result: $022A = 0x55
 ; CHECK test00:
 	LDA $022A
 	CMP $0200
@@ -246,7 +246,7 @@ test01:
 
 	STA $A9 ; $AA
 
-	.byte $FF, $01 ; expected result: $A9 = 0xAA
+	; .byte $FF, $01 ; expected result: $A9 = 0xAA
 ; CHECK test01
 	LDA $A9
 	CMP $0201
@@ -300,7 +300,7 @@ test02:
 	DEC $71 ;
 	DEC $71 ; $FF
 
-	.byte $FF, $02 ; expected result: $71 = 0xFF
+	; .byte $FF, $02 ; expected result: $71 = 0xFF
 ; CHECK test02
 	LDA $71
 	CMP $0202
@@ -381,7 +381,7 @@ test03:
 	ROL $0100,X
 	ROR $0100,X
 	ROR $0100,X
-	.byte $FF, $03 ; expected result: $01DD = 0x6E
+	; .byte $FF, $03 ; expected result: $01DD = 0x6E
 
 ; CHECK test03
 	LDA $01DD
@@ -419,7 +419,7 @@ subr:
 final:
 	STA $0D,X
 
-	.byte $FF, $04 ; expected result: $40 = 0x42
+	; .byte $FF, $04 ; expected result: $40 = 0x42
 ; CHECK test04
 	LDA $40
 	CMP $0204
@@ -452,7 +452,7 @@ test05:
 	TXA
 
 	STA $40
-	.byte $FF, $05 ; expected result: $40 = 0x33
+	; .byte $FF, $05 ; expected result: $40 = 0x33
 ; CHECK test05
 	LDA $40
 	CMP $0205
@@ -544,7 +544,7 @@ test06:
 	SBC ($82),Y
 	STA $30
 
-	.byte $FF, $06; expected result: $30 = 9D
+	; .byte $FF, $06; expected result: $30 = 9D
 ; CHECK test06
 	LDA $30
 	CMP $0206
@@ -631,7 +631,7 @@ beq4:
 	STA $15
 bne4:
 
-	.byte $FF, $07; expected result: $15 = 0x7F
+	; .byte $FF, $07; expected result: $15 = 0x7F
 ; CHECK test07
 	LDA $15
 	CMP $0207
@@ -699,7 +699,7 @@ b8:
 	STA $42 ;
 b9:
 
-	.byte $FF, $08 ; expected result: $42 = 0xA5
+	; .byte $FF, $08 ; expected result: $42 = 0xA5
 ; CHECK test08
 	LDA $42
 	CMP $0208
@@ -725,7 +725,7 @@ test09:
 bpl1:
 	LDY $00,X ;
 	BPL bpl2 ; taken
-	.byte $FF, $E0 ; should not reach
+	; .byte $FF, $E0 ; should not reach
 	LDA #$05 ; not done
 	LDX $A1 ; not done
 bpl2:
@@ -735,7 +735,7 @@ bpl2:
 	SBC #$03 ;
 bmi1:
 	BMI bmi2 ; taken
-	.byte $FF, $E1 ; should not reach
+	; .byte $FF, $E1 ; should not reach
 	LDA #$41 ; not done
 bmi2:
 
@@ -750,7 +750,7 @@ bvc1:
 	LDX $00,Y ;
 	ADC $51,X ;
 	BVC bvc2 ; taken
-	.byte $FF, $E2 ; should not reach
+	; .byte $FF, $E2 ; should not reach
 	LDA #$E5 ; not done
 bvc2:
 	; BVS
@@ -784,7 +784,7 @@ bcs1:
 bcs2:
 	STA $73,X
 
-	.byte $FF, $09 ; expected result: $80 = 0x1F
+	; .byte $FF, $09 ; expected result: $80 = 0x1F
 ; CHECK test09
 	LDA $80
 	CMP $0209
@@ -818,7 +818,7 @@ t10bvc1:
 	NOP
 	STA $30
 
-	.byte $FF, $0A ; expected result: $30 = 0xCE
+	; .byte $FF, $0A ; expected result: $30 = 0xCE
 ; CHECK test10
 	LDA $30
 	CMP $020A
@@ -844,7 +844,7 @@ test11:
 	LDA #$00
 	PLA
 	STA $30
-	.byte $FF, $0B ; expected result: $30 = 0x29
+	; .byte $FF, $0B ; expected result: $30 = 0x29
 ; CHECK test11
 	LDA $30
 	CMP $020B
@@ -871,7 +871,7 @@ runstuff:
 	CLC
 	RTI
 t12end:
-.byte $FF, $0C ; expected result: $33 = 0x42
+; .byte $FF, $0C ; expected result: $33 = 0x42
 ; CHECK test12
 	LDA $33
 	CMP $020C ;; $42
@@ -898,7 +898,7 @@ test13:
 	PLA
 	ADC $20
 	STA $21
-.byte $FF, $0D ; expected result: $21 = 0x6C (simulator)
+; .byte $FF, $0D ; expected result: $21 = 0x6C (simulator)
 ;                  								$21 = 0x0C (ours)
 ; CHECK test13
 	LDA $21
@@ -923,7 +923,7 @@ test14:
 	;BRK (two bytes)
 	INC $60
 
-.byte $FF, $0E ; expect result: $60 = 0x42
+; .byte $FF, $0E ; expect result: $60 = 0x42
 ; CHECK test14
 	LDA $60
 	CMP $020E
