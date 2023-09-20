@@ -7,7 +7,10 @@
 ; ;	.ORG $4000
 ; *= $4000
 start:
-	LDA #$07
-	ADC #$87
-	.byte $FF, $F0
-	JMP start
+	LDX #0
+
+loop:
+	TXA
+	STA $00
+	INX
+	JMP loop
