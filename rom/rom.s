@@ -8,9 +8,15 @@
 ; *= $4000
 start:
 	LDX #0
+	LDY #32
 
 loop:
-	TXA
-	STA $00
+	TYA
+	STA $0400,x
 	INX
+	INY
+	CPY #126
+	BNE :+
+	LDY #32
+:
 	JMP loop

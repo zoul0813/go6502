@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text"
@@ -16,21 +15,21 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
-const ROM_HEAD = 0x8000
-const ZP_HEAD = 0x000
-const STACK_HEAD = 0x100
-
 const (
-	scale        = 4
-	cols         = 40
-	rows         = 25
-	fontSize     = 8
-	padding      = 32
-	frameRate    = 15
-	pixelWidth   = (fontSize * cols)
-	pixelHeight  = (fontSize * rows)
-	screenWidth  = pixelWidth * scale
-	screenHeight = pixelHeight * scale
+	ROM_HEAD            = 0x8000
+	ZP_HEAD             = 0x000
+	STACK_HEAD          = 0x100
+	SCREEN_HEAD  uint16 = 0x400
+	scale               = 4
+	cols                = 40
+	rows                = 25
+	fontSize            = 8
+	padding             = 32
+	frameRate           = 15
+	pixelWidth          = (fontSize * cols)
+	pixelHeight         = (fontSize * rows)
+	screenWidth         = pixelWidth * scale
+	screenHeight        = pixelHeight * scale
 )
 
 var (
@@ -41,38 +40,25 @@ var (
 )
 
 type Game struct {
-	runes   []rune
-	text    string
+	// runes   []rune
+	// text    string
 	counter int
 }
 
 func (g *Game) Update() error {
-	// Add runes that are input by the user by AppendInputChars.
-	// Note that AppendInputChars result changes every frame, so you need to call this
-	// every frame.
-	g.runes = ebiten.AppendInputChars(g.runes[:0])
-	g.text += string(g.runes)
-
-	// Adjust the string to be at most {rows}} lines.
-	ss := strings.Split(g.text, "\n")
-	if len(ss) > rows {
-		g.text = strings.Join(ss[len(ss)-25:], "\n")
-	}
-
 	// Keyboard input
 	// If the enter key is pressed, add a line break.
 	// if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
-	// 	g.text += "\n"
+	// 	text += "\n"
 	// }
 
 	// If the backspace key is pressed, remove one character.
 	// if repeatingKeyPressed(ebiten.KeyBackspace) {
-	// 	if len(g.text) >= 1 {
-	// 		g.text = g.text[:len(g.text)-1]
+	// 	if len(text) >= 1 {
+	// 		text = text[:len(g.text)-1]
 	// 	}
 	// }
 
-	// rom.Set(0x00, byte(g.counter))
 	halted, _ := cpu.Step(rom)
 	if halted {
 		fmt.Printf("Halted", cpu)
@@ -85,12 +71,25 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Clear()
 	// Blink the cursor.
-	t := g.text
-	if g.counter%60 < 30 {
-		t += "_"
+
+	t := ""
+	// if g.counter%60 < 30 {
+	// 	t += "_"
+	// }
+
+	for i := 0; i < 256; i++ {
+		if i%cols == 0 && len(t) > 0 {
+			t += "\n"
+		}
+		c, _ := rom.Get(SCREEN_HEAD + uint16(i))
+		if c >= 32 && c <= 126 {
+			t += string(c)
+		} else {
+			t += " "
+		}
 	}
 
-	bound := text.BoundString(normalFont, "WW")
+	bound := text.BoundString(normalFont, "W")
 
 	x := 0
 	y := 0 + bound.Dy()
@@ -100,8 +99,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	b, _ := rom.Get(0x00)
 	debug := fmt.Sprintf("%02x", b)
 
-	fmt.Printf("0x00: %02x\n", b)
-	text.Draw(screen, debug, normalFont, pixelWidth-bound.Dx()-padding, pixelHeight-bound.Dy()-padding, screenColor)
+	// fmt.Printf("0x00: %02x\n", b)
+	// fmt.Printf("%v", t)
+	text.Draw(screen, debug, normalFont, pixelWidth-bound.Dx(), pixelHeight-bound.Dy(), screenColor)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -135,7 +135,7 @@ func main() {
 		0xFE,       // Y
 		0b00110000, // Status
 		false,      // Single Step
-		true,       // DebugMode
+		false,      // DebugMode
 	)
 
 	word, _ := rom.GetWord(cpu.PC)
@@ -159,7 +159,7 @@ func main() {
 	// }
 
 	g := &Game{
-		text:    "GO6502\nv0.0.0\n\n% ",
+		// text:    "GO6502\nv0.0.0\n\n% ",
 		counter: 0,
 	}
 
