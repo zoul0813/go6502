@@ -1,0 +1,14 @@
+#!/bin/sh
+
+rm -rf kernal.o rom.bin kernal.dbg kernal.*.txt
+
+ca65 kernal.s -g -o kernal.o
+ld65 -o rom.bin -C rom.cfg kernal.o -m kernal.map.txt -Ln kernal.labels.txt --dbgfile kernal.dbg
+
+echo ""
+echo ""
+echo "Kernal Hex Dump"
+echo "------------------------------------------------------------------------------"
+hexdump -C kernal.bin
+echo "------------------------------------------------------------------------------"
+echo ""

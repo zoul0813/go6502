@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text"
@@ -16,6 +17,7 @@ import (
 )
 
 const (
+	CLOCK_SPEED         = time.Nanosecond * 1000 // 1Mhz
 	ROM_HEAD            = 0x8000
 	ZP_HEAD             = 0x000
 	STACK_HEAD          = 0x100
@@ -25,7 +27,7 @@ const (
 	rows                = 25
 	fontSize            = 8
 	padding             = 32
-	frameRate           = 15
+	frameRate           = 30
 	pixelWidth          = (fontSize * cols)
 	pixelHeight         = (fontSize * rows)
 	screenWidth         = pixelWidth * scale
@@ -58,11 +60,6 @@ func (g *Game) Update() error {
 	// 		text = text[:len(g.text)-1]
 	// 	}
 	// }
-
-	halted, _ := cpu.Step(rom)
-	if halted {
-		fmt.Printf("Halted", cpu)
-	}
 
 	g.counter++
 	return nil
@@ -186,8 +183,27 @@ func main() {
 
 	ebiten.SetWindowSize(screenWidth+padding, screenHeight+padding)
 	ebiten.SetWindowTitle("TypeWriter (Ebitengine Demo)")
-	// ebiten.SetTPS(frameRate)
+	ebiten.SetTPS(frameRate)
+
+	doQuit := false
+	cpuClock := time.NewTicker(CLOCK_SPEED)
+	defer cpuClock.Stop()
+
+	go func() {
+		for {
+			if doQuit {
+				return
+			}
+			<-cpuClock.C
+			halted, _ := cpu.Step(rom)
+			if halted {
+				fmt.Printf("Halted: %v", cpu)
+			}
+		}
+	}()
+
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
+	doQuit = true
 }

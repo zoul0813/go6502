@@ -1,12 +1,8 @@
-.segment "VECTORS"
-.word start     ; 0xfffa
-.word start     ; 0xfffc
-.word start     ; 0xfffe
 
 .segment "CODE"
 ; ;	.ORG $4000
 ; *= $4000
-start:
+ENTRY:
 	LDX #0
 	LDY #32
 
@@ -20,3 +16,15 @@ loop:
 	LDY #32
 :
 	JMP loop
+
+UAPUTW:
+	RTS
+
+UAGETW:
+	RTS
+
+UAGET:
+	RTS
+
+
+.include "kernal.s"
