@@ -5,14 +5,6 @@ import (
 	"sync"
 )
 
-// type Addressable interface {
-// 	Load() (uint16, error)
-// 	Get(addr uint16) (uint16, error)
-// 	GetWord(addr uint16) (uint16, error)
-// 	Set(addr uint16, value byte) error
-// 	SetWord(addr uint16, value uint16) error
-// }
-
 type Memory struct {
 	Bytes    []byte
 	Offset   uint16
@@ -32,33 +24,11 @@ func New(size uint32, offset uint16, readOnly bool) *Memory {
 	}
 }
 
-func (o *Memory) Load(bytes []byte) (uint16, error) {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	if len(bytes) > len(o.Bytes) {
-		return 0, fmt.Errorf("%04x is too large for ROM with %04x", len(bytes), len(o.Bytes))
-	}
-
-	size := copy(o.Bytes, bytes)
-
-	return uint16(size), nil
-}
-
+// IO.Memory Interface
 func (o *Memory) Get(addr uint16) (byte, error) {
 	a := addr - o.Offset
 	if int(a) <= len(o.Bytes) {
 		return o.Bytes[a], nil
-	}
-	return 0x00, fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
-}
-
-func (o *Memory) GetWord(addr uint16) (uint16, error) {
-	a := addr - o.Offset
-	if int(a+1) <= len(o.Bytes) {
-		lo := o.Bytes[a]
-		hi := o.Bytes[a+1]
-		var word uint16 = (uint16(hi) << 8) + uint16(lo)
-		return word, nil
 	}
 	return 0x00, fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
 }
@@ -77,6 +47,17 @@ func (o *Memory) Set(addr uint16, value byte) error {
 	}
 	o.Bytes[a] = value
 	return nil
+}
+
+func (o *Memory) GetWord(addr uint16) (uint16, error) {
+	a := addr - o.Offset
+	if int(a+1) <= len(o.Bytes) {
+		lo := o.Bytes[a]
+		hi := o.Bytes[a+1]
+		var word uint16 = (uint16(hi) << 8) + uint16(lo)
+		return word, nil
+	}
+	return 0x00, fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
 }
 
 func (o *Memory) SetWord(addr uint16, value uint16) error {
@@ -102,6 +83,20 @@ func (o *Memory) SetWord(addr uint16, value uint16) error {
 	return nil
 }
 
+// Memory.Memory Public
+
+func (o *Memory) Load(bytes []byte) (uint16, error) {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	if len(bytes) > len(o.Bytes) {
+		return 0, fmt.Errorf("%04x is too large for ROM with %04x", len(bytes), len(o.Bytes))
+	}
+
+	size := copy(o.Bytes, bytes)
+
+	return uint16(size), nil
+}
+
 func (o *Memory) Goto(addr uint16) error {
 	a := addr - o.Offset
 	if int(a) > len(o.Bytes) {
@@ -112,26 +107,18 @@ func (o *Memory) Goto(addr uint16) error {
 	return nil
 }
 
-func (o *Memory) next(offset byte) error {
-	next := int(o.Next) + int(offset)
-	if next < len(o.Bytes) {
-		o.Next = uint16(next)
-	} else {
-		return fmt.Errorf("%04x is out of range of %04x", next, len(o.Bytes))
-	}
-	return nil
-}
-
 func (o *Memory) Write(value byte) error {
-	err := o.Set(o.Next, value)
-	o.next(1)
-	return err
+	if err := o.Set(o.Next, value); err != nil {
+		return err
+	}
+	return o.next(1)
 }
 
 func (o *Memory) WriteWord(value uint16) error {
-	err := o.SetWord(o.Next, value)
-	o.next(2)
-	return err
+	if err := o.SetWord(o.Next, value); err != nil {
+		return err
+	}
+	return o.next(2)
 }
 
 func (o *Memory) Dump(addr uint16, size uint16) {
@@ -189,4 +176,16 @@ const (
 func Colorize(color string, format string, v any) string {
 	f := fmt.Sprintf(format, v)
 	return fmt.Sprintf(color, f)
+}
+
+// Memory.Memory private
+
+func (o *Memory) next(offset byte) error {
+	next := int(o.Next) + int(offset)
+	if next < len(o.Bytes) {
+		o.Next = uint16(next)
+	} else {
+		return fmt.Errorf("%04x is out of range of %04x", next, len(o.Bytes))
+	}
+	return nil
 }

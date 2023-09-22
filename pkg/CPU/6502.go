@@ -3,7 +3,7 @@ package CPU
 import (
 	"fmt"
 
-	"github.com/zoul0813/go6502/pkg/Memory"
+	"github.com/zoul0813/go6502/pkg/IO"
 )
 
 type StatusFlag uint8
@@ -113,7 +113,7 @@ func New(
 	}
 }
 
-func (o *CPU) Step(rom *Memory.Memory) (bool, error) {
+func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	halted := false
 	b, _ := rom.Get(o.PC)
 	var instr OpCode = OpCode(b)
@@ -1776,64 +1776,64 @@ func (o *CPU) DebugBits() {
 	fmt.Print("          NV-BDIZC\n\n")
 }
 
-func (o *CPU) Write(rom *Memory.Memory, b uint8) error {
-	err := rom.Set(o.Address, b)
-	return err
-}
+// func (o *CPU) Write(rom *Memory.Memory, b uint8) error {
+// 	err := rom.Set(o.Address, b)
+// 	return err
+// }
 
 /*
   Addressing Modes
 */
 
-func (o *CPU) Immediate(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) Immediate(rom IO.Memory) (uint16, error) {
 	o.Address = o.PC
 	o.PC += 1
 	return o.Address, nil
 }
 
-func (o *CPU) ZeroPage(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) ZeroPage(rom IO.Memory) (uint16, error) {
 	zp, err := rom.Get(o.PC)
 	o.PC += 1
 	o.Address = uint16(zp)
 	return o.Address, err
 }
 
-func (o *CPU) ZeroPageX(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) ZeroPageX(rom IO.Memory) (uint16, error) {
 	zp, err := rom.Get(o.PC)
 	o.PC += 1
 	o.Address = uint16(zp + o.X)
 	return o.Address, err
 }
 
-func (o *CPU) ZeroPageY(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) ZeroPageY(rom IO.Memory) (uint16, error) {
 	zp, err := rom.Get(o.PC)
 	o.PC += 1
 	o.Address = uint16(zp + o.Y)
 	return o.Address, err
 }
 
-func (o *CPU) Absolute(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) Absolute(rom IO.Memory) (uint16, error) {
 	addr, err := rom.GetWord(o.PC)
 	o.PC += 2
 	o.Address = addr
 	return o.Address, err
 }
 
-func (o *CPU) AbsoluteX(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) AbsoluteX(rom IO.Memory) (uint16, error) {
 	addr, err := rom.GetWord(o.PC)
 	o.PC += 2
 	o.Address = addr + uint16(o.X)
 	return o.Address, err
 }
 
-func (o *CPU) AbsoluteY(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) AbsoluteY(rom IO.Memory) (uint16, error) {
 	addr, err := rom.GetWord(o.PC)
 	o.PC += 2
 	o.Address = addr + uint16(o.Y)
 	return o.Address, err
 }
 
-func (o *CPU) Indirect(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) Indirect(rom IO.Memory) (uint16, error) {
 	from, _ := rom.GetWord(o.PC)
 	o.PC += 2
 	addr, err := rom.GetWord(from)
@@ -1841,7 +1841,7 @@ func (o *CPU) Indirect(rom *Memory.Memory) (uint16, error) {
 	return o.Address, err
 }
 
-func (o *CPU) IndirectX(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) IndirectX(rom IO.Memory) (uint16, error) {
 	zp, _ := rom.Get(o.PC)
 	o.PC += 1
 	addr, err := rom.GetWord(uint16(zp + o.X))
@@ -1849,7 +1849,7 @@ func (o *CPU) IndirectX(rom *Memory.Memory) (uint16, error) {
 	return o.Address, err
 }
 
-func (o *CPU) IndirectY(rom *Memory.Memory) (uint16, error) {
+func (o *CPU) IndirectY(rom IO.Memory) (uint16, error) {
 	zp, _ := rom.Get(o.PC)
 	o.PC += 1
 	addr1, err := rom.GetWord(uint16(zp))

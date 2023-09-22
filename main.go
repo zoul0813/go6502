@@ -10,6 +10,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/zoul0813/go6502/pkg/CPU"
+	"github.com/zoul0813/go6502/pkg/Display"
+	"github.com/zoul0813/go6502/pkg/IO"
 	"github.com/zoul0813/go6502/pkg/Memory"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -36,6 +38,7 @@ const (
 
 var (
 	normalFont  font.Face
+	io          *IO.IO
 	cpu         *CPU.CPU
 	rom         *Memory.Memory
 	screenColor = color.RGBA{75, 220, 125, 20}
@@ -78,7 +81,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if i%cols == 0 && len(t) > 0 {
 			t += "\n"
 		}
-		c, _ := rom.Get(SCREEN_HEAD + uint16(i))
+		c, _ := io.Get(SCREEN_HEAD + uint16(i))
 		if c >= 32 && c <= 126 {
 			t += string(c)
 		} else {
@@ -93,7 +96,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	text.Draw(screen, t, normalFont, x, y, screenColor)
 
-	b, _ := rom.Get(0x00)
+	b, _ := io.Get(0x00)
 	debug := fmt.Sprintf("%02x", b)
 
 	// fmt.Printf("0x00: %02x\n", b)
@@ -122,6 +125,16 @@ func main() {
 	rom.Dump(0xfff0, 0x0f) // Reset Vectors
 	rom.Dump(0x8000, 0xff) // Start of Program?
 
+	display := Display.New(0xD012, cols, rows)
+
+	devices := []IO.Memory{
+		rom,
+		display,
+		// keyboard,
+	}
+	io = IO.New(devices)
+	fmt.Printf("%v", io)
+
 	// should just loop infinitely now ...
 
 	cpu = CPU.New(
@@ -135,7 +148,7 @@ func main() {
 		false,      // DebugMode
 	)
 
-	word, _ := rom.GetWord(cpu.PC)
+	word, _ := io.GetWord(cpu.PC)
 	cpu.PC = word
 
 	cpu.Debug()
