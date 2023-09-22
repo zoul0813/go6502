@@ -1,9 +1,7 @@
 ;  The WOZ Monitor for the Apple 1
 ;  Written by Steve Wozniak in 1976
 
-.segment "CODE"
 ; Page 0 Variables
-
 XAML            = $24           ;  Last "opened" location Low
 XAMH            = $25           ;  Last "opened" location High
 STL             = $26           ;  Store address Low
@@ -22,8 +20,10 @@ KBDCR           = $D011         ;  PIA.A keyboard control register
 DSP             = $D012         ;  PIA.B display output register
 DSPCR           = $D013         ;  PIA.B display control register
 
-               .org $FF00
-               .export RESET
+.segment "KERNAL"
+
+.org $FF00
+
 
 RESET:          CLD             ; Clear decimal arithmetic mode.
                 CLI
@@ -150,11 +150,7 @@ ECHO:           BIT DSP         ; bit (B7) cleared yet?
                 STA DSP         ; Output character. Sets DA.
                 RTS             ; Return.
 
-                BRK             ; unused
-                BRK             ; unused
+                ; BRK             ; unused
+                ; BRK             ; unused
 
-; Interrupt Vectors
-.segment "VECTORS"
-                .WORD $0F00     ; NMI
-                .WORD RESET     ; RESET
-                .WORD $0000     ; BRK/IRQ
+;;; Vectors moved to rom.s because reasons ... :shrug:

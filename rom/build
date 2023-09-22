@@ -3,7 +3,8 @@
 rm -rf rom.o rom.bin rom.dbg rom.*.txt
 
 ca65 rom.s -g -o rom.o
-ld65 -o rom.bin -C rom.cfg rom.o -m rom.map.txt -Ln rom.labels.txt --dbgfile rom.dbg
+ca65 wozmon.s -g -o wozmon.o
+ld65 -o rom.bin -C rom.cfg rom.o wozmon.o -m rom.map.txt -Ln rom.labels.txt --dbgfile rom.dbg
 
 echo ""
 echo ""

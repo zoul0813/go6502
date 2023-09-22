@@ -1,6 +1,7 @@
 
+
 .segment "CODE"
-; ;	.ORG $4000
+	.org $8000
 ; *= $4000
 ENTRY:
 	LDX #0
@@ -26,5 +27,10 @@ UAGETW:
 UAGET:
 	RTS
 
+.include "wozmon.s"
 
-.include "kernal.s"
+; Interrupt Vectors
+.segment "VECTORS"
+	.WORD $0F00     ; NMI
+	.WORD ENTRY     ; RESET
+	.WORD $0000     ; BRK/IRQ

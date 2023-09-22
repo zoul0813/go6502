@@ -1,9 +1,9 @@
 #!/bin/sh
 
-rm -rf wozmon.o rom.bin wozmon.dbg wozmon.*.txt
+rm -rf wozmon.o wozmon.bin wozmon.dbg wozmon.*.txt
 
 ca65 wozmon.s -g -o wozmon.o
-ld65 -o rom.bin -C rom.cfg wozmon.o -m wozmon.map.txt -Ln wozmon.labels.txt --dbgfile wozmon.dbg
+ld65 -o wozmon.bin -C rom.cfg wozmon.o -m wozmon.map.txt -Ln wozmon.labels.txt --dbgfile wozmon.dbg
 
 echo ""
 echo ""
