@@ -12,6 +12,7 @@ import (
 	"github.com/zoul0813/go6502/pkg/CPU"
 	"github.com/zoul0813/go6502/pkg/Display"
 	"github.com/zoul0813/go6502/pkg/IO"
+	"github.com/zoul0813/go6502/pkg/Keyboard"
 	"github.com/zoul0813/go6502/pkg/Memory"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -19,7 +20,8 @@ import (
 )
 
 const (
-	CLOCK_SPEED         = time.Nanosecond * 1000 // 1Mhz
+	// CLOCK_SPEED         = time.Nanosecond * 1000 // 1Mhz
+	CLOCK_SPEED         = time.Millisecond * 100 // 1Mhz
 	ROM_HEAD            = 0x8000
 	ZP_HEAD             = 0x000
 	STACK_HEAD          = 0x100
@@ -40,6 +42,9 @@ var (
 	normalFont  font.Face
 	io          *IO.IO
 	cpu         *CPU.CPU
+	ram         *Memory.Memory
+	keyboard    *Keyboard.Keyboard
+	display     *Display.Display
 	rom         *Memory.Memory
 	screenColor = color.RGBA{75, 220, 125, 20}
 )
@@ -81,7 +86,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if i%cols == 0 && len(t) > 0 {
 			t += "\n"
 		}
-		c, _ := io.Get(SCREEN_HEAD + uint16(i))
+		c, _ := display.Read(uint16(i))
 		if c >= 32 && c <= 126 {
 			t += string(c)
 		} else {
@@ -96,12 +101,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	text.Draw(screen, t, normalFont, x, y, screenColor)
 
-	b, _ := io.Get(0x00)
-	debug := fmt.Sprintf("%02x", b)
+	b := cpu.PC
+	debug := fmt.Sprintf("%04x", b)
 
 	// fmt.Printf("0x00: %02x\n", b)
 	// fmt.Printf("%v", t)
-	text.Draw(screen, debug, normalFont, pixelWidth-bound.Dx(), pixelHeight-bound.Dy(), screenColor)
+	dx := pixelWidth - bound.Dx()*5
+	dy := pixelHeight - bound.Dy()
+	text.Draw(screen, debug, normalFont, dx, dy, screenColor)
+	cpu.DebugRegister(screen, normalFont, bound)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -111,31 +119,33 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func main() {
 	fmt.Printf("Go 6502... \n")
 
-	// ram := Memory.New(0x8000, 0x0000, false)
-	rom = Memory.New(0xffff, 0x0000, false)
+	// RAM
+	ram = Memory.New(0x0000, 0x8000, true)
+
+	// Display
+	display = Display.New(0xD012, cols, rows)
+
+	// Keyboard
+	keyboard = Keyboard.New(0xD010)
+
+	// ROM
+	rom = Memory.New(0xFFFF, 0x0000, false)
 	f, err := os.ReadFile("rom/rom.bin")
 	if err != nil {
 		fmt.Printf("Can't read file rom/rom.bin\n\n")
 		panic(err)
 	}
 
+	fmt.Printf("Loading rom %04x (%v) bytes\n", len(f), len(f))
 	rom.Load(f)
 
-	// rom.Dump(0x0000, 0xff) // Zero Page
-	rom.Dump(0xfff0, 0x0f) // Reset Vectors
-	rom.Dump(0x8000, 0xff) // Start of Program?
-
-	display := Display.New(0xD012, cols, rows)
-
-	devices := []IO.Memory{
-		rom,
-		display,
-		// keyboard,
+	devices := []*IO.Device{
+		// IO.NewDevice("RAM", ram, 0x8000, 0x0000),
+		// IO.NewDevice("Keyboard", keyboard, 0x01, 0xD010),
+		// IO.NewDevice("Display", display, 0x01, 0xD012),
+		IO.NewDevice("ROM", rom, 0xFFFF, 0x0000),
 	}
-	io = IO.New(devices)
-	fmt.Printf("%v", io)
-
-	// should just loop infinitely now ...
+	io = IO.New(devices, 0xFFFF)
 
 	cpu = CPU.New(
 		0xfffc,     // PC
@@ -153,20 +163,14 @@ func main() {
 
 	cpu.Debug()
 
-	// for {
-	// 	if cpu.SingleStep {
-	// 		DebugConsole(cpu, rom)
-	// 	}
-
-	// 	halted, _ := cpu.Step(rom)
-
-	// 	if halted {
-	// 		DebugConsole(cpu, rom)
-	// 	}
-
-	// 	fmt.Print("\n") // always end the instructions debug lines
-	// 	cpu.Debug()
-	// }
+	// fmt.Printf("ZeroPage: %04x bytes from %04x\n", 0xff, 0x0000)
+	// io.Dump(0x0000, 0xff) // Zero Page
+	fmt.Printf("Reset: %04x bytes from %04x\n", 0x0f, 0xfff0)
+	io.Dump(0xfff0, 0x0f) // Reset Vectors
+	fmt.Printf("ROM Head: %04x bytes from %04x\n", 0xff, 0xE000)
+	io.Dump(cpu.PC, 0xff) // Start of Program?
+	fmt.Printf("Program: %04x bytes from %04x\n", 0xff, cpu.PC)
+	io.Dump(cpu.PC, 0xff) // Reset Vector goes to?
 
 	g := &Game{
 		// text:    "GO6502\nv0.0.0\n\n% ",
@@ -208,7 +212,7 @@ func main() {
 				return
 			}
 			<-cpuClock.C
-			halted, _ := cpu.Step(rom)
+			halted, _ := cpu.Step(io)
 			if halted {
 				fmt.Printf("Halted: %v", cpu)
 			}

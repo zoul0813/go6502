@@ -2,7 +2,7 @@ package Memory
 
 import (
 	"fmt"
-	"sync"
+	"log"
 )
 
 type Memory struct {
@@ -10,12 +10,10 @@ type Memory struct {
 	Offset   uint16
 	ReadOnly bool
 	Next     uint16
-
-	mutex sync.Mutex
 }
 
 func New(size uint32, offset uint16, readOnly bool) *Memory {
-	fmt.Printf("Memory: %v at %04x\n", size, offset)
+	// fmt.Printf("Memory: %v at %04x\n", size, offset)
 	return &Memory{
 		Bytes:    make([]byte, size+1), // we add 1, cause 0x0000:0xFFFF is (0:65536)
 		Offset:   offset,
@@ -34,8 +32,8 @@ func (o *Memory) Get(addr uint16) (byte, error) {
 }
 
 func (o *Memory) Set(addr uint16, value byte) error {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	// o.mutex.Lock()
+	// defer o.mutex.Unlock()
 
 	if o.ReadOnly {
 		return fmt.Errorf("attempt to write to ROM at %04x", addr)
@@ -61,8 +59,8 @@ func (o *Memory) GetWord(addr uint16) (uint16, error) {
 }
 
 func (o *Memory) SetWord(addr uint16, value uint16) error {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	// o.mutex.Lock()
+	// defer o.mutex.Unlock()
 
 	if o.ReadOnly {
 		return fmt.Errorf("attempt to write to ROM at %04x", addr)
@@ -83,19 +81,23 @@ func (o *Memory) SetWord(addr uint16, value uint16) error {
 	return nil
 }
 
-// Memory.Memory Public
-
 func (o *Memory) Load(bytes []byte) (uint16, error) {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	if len(bytes) > len(o.Bytes) {
-		return 0, fmt.Errorf("%04x is too large for ROM with %04x", len(bytes), len(o.Bytes))
+	fmt.Printf("Loading %v bytes into %v\n", len(bytes), "memory")
+	ro := o.ReadOnly
+	o.ReadOnly = false
+	for i, b := range bytes {
+		// fmt.Printf("\t%v: %04x: %02x\n", i, o.Offset+uint16(i), b)
+		err := o.Set(o.Offset+uint16(i), b)
+		if err != nil {
+			fmt.Printf("Load Error: %v\n", err)
+			log.Fatal(err)
+		}
 	}
-
-	size := copy(o.Bytes, bytes)
-
-	return uint16(size), nil
+	o.ReadOnly = ro
+	return uint16(len(bytes)), nil
 }
+
+// Memory.Memory public
 
 func (o *Memory) Goto(addr uint16) error {
 	a := addr - o.Offset
@@ -119,63 +121,6 @@ func (o *Memory) WriteWord(value uint16) error {
 		return err
 	}
 	return o.next(2)
-}
-
-func (o *Memory) Dump(addr uint16, size uint16) {
-	a := addr - o.Offset
-	if int(a+size) > len(o.Bytes) {
-		fmt.Printf("%04x is out of range of %04x", addr, len(o.Bytes))
-		return
-	}
-
-	fmt.Printf("Memory Dump (%07x:%07x)\n", addr, addr+size)
-	fmt.Print(Colorize(DebugColor, "%s", "------- 0001 0203 0405 0607 0809 0A0B 0C0D 0E0F\n"))
-	fmt.Print(Colorize(DebugColor, "%s", "------- ---- ---- ---- ---- ---- ---- ---- ----\n"))
-	// fmt.Printf("0000000 2aa5 3818 0000 0000 0000 0000 0000 0000")
-	var lcv int = 0
-	var i uint16 = addr
-	var end = addr + size
-	for i < end {
-		fmt.Print(Colorize(AddrColor, "%07x ", i))
-		for w := 0; w < 8; w++ {
-			// fmt.Print("ww")
-			w1, _ := o.Get(i)
-			i++
-			w2, _ := o.Get(i)
-			if i < end {
-				i++
-			}
-
-			// fmt.Printf("%02x%02x ", w1, w2)
-			w1c := HiColor
-			if w1 == 0 {
-				w1c = EmptyColor
-			}
-			w2c := LoColor
-			if w2 == 0 {
-				w2c = EmptyColor
-			}
-			fmt.Printf("%s%s ", Colorize(w1c, "%02x", w1), Colorize(w2c, "%02x", w2))
-			lcv++
-		}
-
-		fmt.Printf("\n")
-	}
-	fmt.Print(Colorize(DebugColor, "%s", "------- ---- ---- ---- ---- ---- ---- ---- ----\n"))
-	fmt.Printf("%v bytes, %v loops, (%07x:%07x):%07x\n\n", size+1, lcv, addr, end, i)
-}
-
-const (
-	EmptyColor = "\033[1;90m%s\033[0m"
-	HiColor    = "\033[1;31m%s\033[0m"
-	LoColor    = "\033[1;91m%s\033[0m"
-	AddrColor  = "\033[1;32m%s\033[0m"
-	DebugColor = "\033[0;37m%s\033[0m"
-)
-
-func Colorize(color string, format string, v any) string {
-	f := fmt.Sprintf(format, v)
-	return fmt.Sprintf(color, f)
 }
 
 // Memory.Memory private

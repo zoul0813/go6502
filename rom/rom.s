@@ -1,9 +1,7 @@
-
-
 .segment "CODE"
-	.org $8000
 ; *= $4000
 ENTRY:
+	LDA #$EA
 	LDX #0
 	LDY #32
 
@@ -16,6 +14,7 @@ loop:
 	BNE :+
 	LDY #32
 :
+	STA $00
 	JMP loop
 
 UAPUTW:
@@ -29,7 +28,7 @@ UAGET:
 
 .include "wozmon.s"
 
-; Interrupt Vectors
+; ; Interrupt Vectors
 .segment "VECTORS"
 	.WORD $0F00     ; NMI
 	.WORD ENTRY     ; RESET

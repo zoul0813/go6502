@@ -19,6 +19,7 @@ func New(offset uint16, cols int, rows int) *Display {
 }
 
 func (d *Display) Set(addr uint16, value byte) error {
+	fmt.Printf("Display: Set: 0x%04x 0x%02x\n", addr, value)
 	d.buffer[d.index] = value
 	d.index++
 	if d.index >= d.size {
@@ -50,4 +51,20 @@ func (d *Display) GetWord(addr uint16) (uint16, error) {
 	lo := d.buffer[a+1]
 	b := (uint16(hi) << 8) + uint16(lo)
 	return b, nil
+}
+
+func (d *Display) Write(addr uint16, value byte) error {
+	if addr >= uint16(d.size) {
+		return fmt.Errorf("Display: Out of range %02x", addr)
+	}
+
+	d.buffer[addr] = value
+	return nil
+}
+
+func (d *Display) Read(addr uint16) (byte, error) {
+	if addr >= uint16(d.size) {
+		return 0x00, fmt.Errorf("Display: Out of range %02x", addr)
+	}
+	return d.buffer[addr], nil
 }

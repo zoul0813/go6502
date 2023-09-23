@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/zoul0813/go6502/pkg/CPU"
-	"github.com/zoul0813/go6502/pkg/Memory"
+	"github.com/zoul0813/go6502/pkg/IO"
 )
 
-func DebugConsole(cpu *CPU.CPU, rom *Memory.Memory) {
+func DebugConsole(cpu *CPU.CPU, io *IO.IO) {
 	// DEBUG CONSOLE
 	for {
 		var pre string
@@ -34,11 +34,11 @@ func DebugConsole(cpu *CPU.CPU, rom *Memory.Memory) {
 		case "zp":
 			fallthrough
 		case "zeropage":
-			rom.Dump(0x0000, 0xff)
+			io.Dump(0x0000, 0xff)
 		case "s":
 			fallthrough
 		case "stack":
-			rom.Dump(0x0100, 0xff)
+			io.Dump(0x0100, 0xff)
 		case "m":
 			fallthrough
 		case "mem":
@@ -52,7 +52,7 @@ func DebugConsole(cpu *CPU.CPU, rom *Memory.Memory) {
 				e, _ := strconv.ParseInt(arg2, 16, 16)
 				end = uint16(e)
 			}
-			rom.Dump(start, end)
+			io.Dump(start, end)
 		case "d":
 			fallthrough
 		case "debug":

@@ -2,8 +2,13 @@ package CPU
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/zoul0813/go6502/pkg/IO"
+	"golang.org/x/image/font"
 )
 
 type StatusFlag uint8
@@ -45,19 +50,16 @@ const (
 )
 
 type CPU struct {
-	PC     uint16
-	SP     uint8
-	A      uint8
-	X      uint8
-	Y      uint8
-	Status uint8
-
+	PC         uint16
+	SP         uint8
+	A          uint8
+	X          uint8
+	Y          uint8
+	Status     uint8
 	SingleStep bool
-
-	Address uint16
-
-	DebugMode bool
-	halted    bool
+	Address    uint16
+	DebugMode  bool
+	halted     bool
 }
 
 const ZP_HEAD = 0x000
@@ -113,9 +115,9 @@ func New(
 	}
 }
 
-func (o *CPU) Step(rom IO.Memory) (bool, error) {
+func (o *CPU) Step(io IO.Memory) (bool, error) {
 	halted := false
-	b, _ := rom.Get(o.PC)
+	b, _ := io.Get(o.PC)
 	var instr OpCode = OpCode(b)
 	o.PC++ // increment the stack pointer
 	o.Log("Instruction: %02x\n", instr)
@@ -124,23 +126,23 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case JMP_A:
 		// jump absolute
 		o.Log("I: JMP ")
-		addr, _ := o.Absolute(rom)
+		addr, _ := o.Absolute(io)
 		o.Log("%04x (ABS)", addr)
 		o.PC = addr
 	case JMP_IN:
 		// jump indirect
 		o.Log("I: JMP ")
-		// from, _ := rom.GetWord(o.PC)
-		// addr, _ := rom.GetWord(from)
-		addr, _ := o.Indirect(rom)
+		// from, _ := io.GetWord(o.PC)
+		// addr, _ := io.GetWord(fio)
+		addr, _ := o.Indirect(io)
 		o.Log("%04x (Indirect)", addr)
 		o.PC = addr
 	case JSR_A:
 		// jump to subroute, absolute
 		o.Log("I: JSR ")
-		// addr, _ := rom.GetWord(o.PC) // jump to here
+		// addr, _ := io.GetWord(o.PC) // jump to here
 		// o.PC += 2
-		addr, _ := o.Absolute(rom)
+		addr, _ := o.Absolute(io)
 		o.Log("%04x (ABS)", addr)
 
 		pc := o.PC - 1
@@ -148,17 +150,17 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		var hi uint8 = uint8(pc >> 8)
 
 		o.SP--
-		rom.Set(STACK_HEAD+uint16(o.SP), hi)
+		io.Set(STACK_HEAD+uint16(o.SP), hi)
 		o.SP--
-		rom.Set(STACK_HEAD+uint16(o.SP), lo)
+		io.Set(STACK_HEAD+uint16(o.SP), lo)
 
 		o.PC = addr
 	case RTS:
 		o.Log("I: RTS ")
 		o.Log("(Implied)")
-		lo, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		lo, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
-		hi, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		hi, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
 		var addr uint16 = (uint16(hi) << 8) | uint16(lo)
 		o.PC = addr + 1
@@ -166,19 +168,19 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		o.Log("I: RTI ")
 		o.Log("(Implied)")
 		o.SP++
-		status, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.Status = status
 		o.SP++
-		lo, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		lo, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
-		hi, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		hi, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		var addr uint16 = (uint16(hi) << 8) | uint16(lo)
 		o.Log(" RTI: %02x %02x %02x %04x \n", status, lo, hi, addr)
 		o.PC = addr
 	case BPL:
 		// branch on plus
 		o.Log("I: BPL ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		neg := BitTest(Negative, o.Status)
@@ -188,7 +190,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BMI:
 		// branch on minus
 		o.Log("I: BMI ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		neg := BitTest(Negative, o.Status)
@@ -198,7 +200,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BVC:
 		// branch on overflow clear
 		o.Log("I: BVC ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		overflow := BitTest(Overflow, o.Status)
@@ -208,7 +210,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BVS:
 		// branch on overflow set
 		o.Log("I: BVS ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		overflow := BitTest(Overflow, o.Status)
@@ -218,7 +220,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BCC:
 		// branch on carry clear
 		o.Log("I: BCC ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		carry := BitTest(Carry, o.Status)
@@ -228,7 +230,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BCS:
 		// branch on carry set
 		o.Log("I: BCS ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		carry := BitTest(Carry, o.Status)
@@ -238,7 +240,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BNE:
 		// branch on not equal
 		o.Log("I: BNE ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		zero := BitTest(Zero, o.Status)
@@ -248,7 +250,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BEQ:
 		// branch on equal
 		o.Log("I: BEQ ")
-		rel, _ := rom.Get(o.PC)
+		rel, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Rel)", rel)
 		zero := BitTest(Zero, o.Status)
@@ -269,8 +271,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_I:
 		// add with carry, immediate
 		o.Log("I: ADC ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.ADC(b)
@@ -278,8 +280,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_ZP:
 		// add with carry, zero page
 		o.Log("I: ADC ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.ADC(b)
@@ -287,8 +289,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_ZPX:
 		// add with carry, zero page, x
 		o.Log("I: ADC ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		o.ADC(b)
@@ -296,8 +298,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_A:
 		// add with carry, absolute
 		o.Log("I: ADC ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.ADC(b)
@@ -305,8 +307,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_AX:
 		// add with carry, absolute, x
 		o.Log("I: ADC ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.ADC(b)
@@ -314,8 +316,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_AY:
 		// add with carry, absolute, y
 		o.Log("I: ADC ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.ADC(b)
@@ -323,8 +325,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_INX:
 		// add with carry, indirect, x
 		o.Log("I: ADC ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 
 		o.ADC(b)
@@ -332,8 +334,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ADC_INY:
 		// add with carry, indirect, y
 		o.Log("I: ADC ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, Y)", addr)
 
 		o.ADC(b)
@@ -343,8 +345,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_I:
 		// subtract with carry, immediate
 		o.Log("I: SBC ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.SBC(b)
@@ -352,8 +354,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_ZP:
 		// subtract with carry, zero page
 		o.Log("I: SBC ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.SBC(b)
@@ -361,8 +363,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_ZPX:
 		// subtract with carry, zero page, x
 		o.Log("I: SBC ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		o.SBC(b)
@@ -370,8 +372,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_A:
 		// subtract with carry, absolute
 		o.Log("I: SBC ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.SBC(b)
@@ -379,8 +381,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_AX:
 		// subtract with carry, absolute, x
 		o.Log("I: SBC ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.SBC(b)
@@ -388,8 +390,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_AY:
 		// subtract with carry, absolute, y
 		o.Log("I: SBC ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.SBC(b)
@@ -397,8 +399,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_INX:
 		// subtract with carry, indirect, x
 		o.Log("I: SBC ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 
 		o.SBC(b)
@@ -406,8 +408,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case SBC_INY:
 		// subtract with carry, indirect, y
 		o.Log("I: SBC ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, Y)", addr)
 
 		o.SBC(b)
@@ -417,8 +419,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_I:
 		// compare accumulator
 		o.Log("I: CMP ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		a := o.A
@@ -430,8 +432,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_ZP:
 		// compare accumulator, zero page
 		o.Log("I: CMP ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		a := o.A
@@ -443,8 +445,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_ZPX:
 		// compare accumulator, zero page, x
 		o.Log("I: CMP ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		a := o.A
@@ -456,8 +458,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_A:
 		// compare accumulator, absolute
 		o.Log("I: CMP ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		a := o.A
@@ -469,8 +471,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_AX:
 		// compare accumulator, absolute, x
 		o.Log("I: CMP ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		a := o.A
@@ -482,8 +484,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_AY:
 		// compare accumulator, absolute, y
 		o.Log("I: CMP ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		a := o.A
@@ -495,8 +497,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_INX:
 		// compare accumulator, indirect, x
 		o.Log("I: CMP ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 
 		a := o.A
@@ -508,8 +510,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CMP_INY:
 		// compare accumulator, indirect y
 		o.Log("I: CMP ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 
 		o.Log("%04x (Indirect, Y)", addr)
 
@@ -522,8 +524,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CPX:
 		// compare x
 		o.Log("I: CPX ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		a := o.X
@@ -535,8 +537,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CPX_ZP:
 		// compare x, zero page
 		o.Log("I: CPX ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		a := o.X
@@ -548,8 +550,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CPX_A:
 		// compare x, absolute
 		o.Log("I: CPX ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		a := o.X
@@ -561,7 +563,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CPY:
 		// compare y
 		o.Log("I: CPY ")
-		v, _ := rom.Get(o.PC)
+		v, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (Immediate)", v)
 		a := o.Y
@@ -572,10 +574,10 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CPY_ZP:
 		// compare x, zero page
 		o.Log("I: CPY ")
-		zp, _ := rom.Get(o.PC)
+		zp, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (ZP)", zp)
-		v, _ := rom.Get(uint16(zp))
+		v, _ := io.Get(uint16(zp))
 		a := o.Y
 		r := a - v // actually do the math, so we can determine if it's negative
 		o.SetStatus(Negative, IsNegative(r))
@@ -584,8 +586,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case CPY_A:
 		// compare x, absolute
 		o.Log("I: CPY ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		a := o.Y
@@ -599,8 +601,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_I:
 		// and with a
 		o.Log("I: AND ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.A &= b
@@ -610,8 +612,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_ZP:
 		// and with a, zero page
 		o.Log("I: AND ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.A &= b
@@ -621,8 +623,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_ZPX:
 		// and with a, zero page, x
 		o.Log("I: AND ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		o.A &= b
@@ -632,8 +634,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_A:
 		// and with a, absolute
 		o.Log("I: AND ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.A &= b
@@ -643,8 +645,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_AX:
 		// and with a, absolute, x
 		o.Log("I: AND ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.A &= b
@@ -654,8 +656,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_AY:
 		// and with a, absolute, y
 		o.Log("I: AND ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.A &= b
@@ -665,8 +667,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_INX:
 		// and with a, indirect, x
 		o.Log("I: AND ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 
 		o.A &= b
@@ -676,8 +678,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case AND_INY:
 		// and with a, indirect, y
 		o.Log("I: AND ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, Y)", addr)
 
 		o.A &= b
@@ -689,8 +691,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_I:
 		// exclusive or, immediate
 		o.Log("I: EOR ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.A ^= b
@@ -700,8 +702,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_ZP:
 		// exclusive or, zero page
 		o.Log("I: EOR ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.A ^= b
@@ -711,8 +713,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_ZPX:
 		// exclusive or, zeor page, x
 		o.Log("I: EOR ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		o.A ^= b
@@ -722,8 +724,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_A:
 		// exclusive or, absolute
 		o.Log("I: EOR ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.A ^= b
@@ -733,8 +735,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_AX:
 		// exclusive or, absolute, x
 		o.Log("I: EOR ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.A ^= b
@@ -744,8 +746,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_AY:
 		// exclusive or, absolute, y
 		o.Log("I: EOR ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.A ^= b
@@ -755,8 +757,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_INX:
 		// exclusive or, indirect, x
 		o.Log("I: EOR ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 		o.A ^= b
 
@@ -765,8 +767,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case EOR_INY:
 		// exclusive or, indirect, y
 		o.Log("I: EOR ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, Y)", addr)
 		o.A ^= b
 
@@ -777,8 +779,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_I:
 		// exclusive or, immediate
 		o.Log("I: ORA ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.A |= b
@@ -788,8 +790,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_ZP:
 		// exclusive or, zero page
 		o.Log("I: ORA ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.A |= b
@@ -799,8 +801,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_ZPX:
 		// exclusive or, zeor page, x
 		o.Log("I: ORA ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		o.A |= b
@@ -810,8 +812,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_A:
 		// exclusive or, absolute
 		o.Log("I: ORA ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.A |= b
@@ -821,8 +823,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_AX:
 		// exclusive or, absolute, x
 		o.Log("I: ORA ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.A |= b
@@ -832,8 +834,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_AY:
 		// exclusive or, absolute, y
 		o.Log("I: ORA ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.A |= b
@@ -843,8 +845,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_INX:
 		// exclusive or, indirect, x
 		o.Log("I: ORA ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 		o.A |= b
 
@@ -853,8 +855,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ORA_INY:
 		// exclusive or, indirect, y
 		o.Log("I: ORA ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, Y)", addr)
 
 		o.A |= b
@@ -866,187 +868,187 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case STA_ZP:
 		// store a, zero page
 		o.Log("I: STA ")
-		addr, _ := o.ZeroPage(rom)
+		addr, _ := o.ZeroPage(io)
 		o.Log("%02x (ZP)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STA_ZPX:
 		// store a, zero page, x
 		o.Log("I: STA ")
-		addr, _ := o.ZeroPageX(rom)
+		addr, _ := o.ZeroPageX(io)
 		o.Log("%02x (ZP, X)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STA_A:
 		// store a, zero page, x
 		o.Log("I: STA ")
-		addr, _ := o.Absolute(rom)
+		addr, _ := o.Absolute(io)
 		o.Log("%04x (ABS)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STA_AX:
 		// store a, zero page, x
 		o.Log("I: STA ")
-		addr, _ := o.AbsoluteX(rom)
+		addr, _ := o.AbsoluteX(io)
 		o.Log("%04x (ABS, X)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STA_AY:
 		// store a, zero page, x
 		o.Log("I: STA ")
-		addr, _ := o.AbsoluteY(rom)
+		addr, _ := o.AbsoluteY(io)
 		o.Log("%04x (ABS, Y)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STA_INX: // store a, indirect, x
 		o.Log("I: STA ")
-		addr, _ := o.IndirectX(rom)
+		addr, _ := o.IndirectX(io)
 		o.Log("%04x (Indirect, X)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STA_INY: // store a, indirect, y
 		o.Log("I: STA ")
-		addr, _ := o.IndirectY(rom)
+		addr, _ := o.IndirectY(io)
 		o.Log("%04x (Indirect, Y)", addr)
 
-		rom.Set(addr, o.A)
+		io.Set(addr, o.A)
 	case STX_ZP:
 		// store a, zero page
 		o.Log("I: STX ")
-		addr, _ := o.ZeroPage(rom)
+		addr, _ := o.ZeroPage(io)
 		o.Log("%02x (ZP)", addr)
 
-		rom.Set(addr, o.X)
+		io.Set(addr, o.X)
 	case STX_ZPY:
 		// store a, zero page, y
 		o.Log("I: STY ")
-		addr, _ := o.ZeroPageY(rom)
+		addr, _ := o.ZeroPageY(io)
 		o.Log("%02x (ZP, Y)", addr)
 
-		rom.Set(addr, o.X)
+		io.Set(addr, o.X)
 	case STX_A:
 		// store a, zero page, x
 		o.Log("I: STX ")
-		addr, _ := o.Absolute(rom)
+		addr, _ := o.Absolute(io)
 		o.Log("%04x (ABS)", addr)
 
-		rom.Set(addr, o.X)
+		io.Set(addr, o.X)
 	case STY_ZP:
 		// store a, zero page
 		o.Log("I: STY ")
-		addr, _ := o.ZeroPage(rom)
+		addr, _ := o.ZeroPage(io)
 		o.Log("%02x (ZP)", addr)
 
-		rom.Set(addr, o.Y)
+		io.Set(addr, o.Y)
 	case STY_ZPX:
 		// store a, zero page, x
 		o.Log("I: STY ")
-		addr, _ := o.ZeroPageX(rom)
+		addr, _ := o.ZeroPageX(io)
 		o.Log("%02x (ZP, X)", addr)
 
-		rom.Set(addr, o.Y)
+		io.Set(addr, o.Y)
 	case STY_A:
 		// store a, zero page, x
 		o.Log("I: STY ")
-		addr, _ := o.Absolute(rom)
+		addr, _ := o.Absolute(io)
 		o.Log("%04x (ABS)", addr)
 
-		rom.Set(addr, o.Y)
+		io.Set(addr, o.Y)
 
 	// INC/DEC Instructions
 	case INC_ZP:
 		// increment zero page
 		o.Log("I: INC ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		b++
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case INC_ZPX:
 		// increment zero page, x
 		o.Log("I: INC ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		b++
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case INC_A:
 		// increment absolute
 		o.Log("I: INC ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		b++
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case INC_AX:
 		// increment absolute, x
 		o.Log("I: INC ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		b++
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case DEC_ZP:
 		// increment zero page
 		o.Log("I: DEC ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		b--
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case DEC_ZPX:
 		// increment zero page, x
 		o.Log("I: DEC ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		b--
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case DEC_A:
 		// increment absolute
 		o.Log("I: DEC ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		b--
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case DEC_AX:
 		// increment absolute, x
 		o.Log("I: DEC ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		b--
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
@@ -1080,8 +1082,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_I:
 		// load A immediate
 		o.Log("I: LDA ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.A = b
@@ -1091,8 +1093,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_ZP:
 		// load A zero page
 		o.Log("I: LDA ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.A = b
@@ -1102,8 +1104,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_ZPX:
 		// load A zero page, x index
 		o.Log("I: LDA ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		o.A = b
@@ -1113,8 +1115,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_A:
 		// load A absolute
 		o.Log("I: LDA ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.A = b
@@ -1124,8 +1126,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_AX:
 		// load A absolute, x
 		o.Log("I: LDA ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.A = b
@@ -1135,8 +1137,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_AY:
 		// load A absolute, y
 		o.Log("I: LDA ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.A = b
@@ -1146,8 +1148,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_INX:
 		// load A x index, indirect
 		o.Log("I: LDA ")
-		addr, _ := o.IndirectX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, X)", addr)
 
 		o.A = b
@@ -1157,8 +1159,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDA_INY:
 		// load A indirect, y index
 		o.Log("I: LDA ")
-		addr, _ := o.IndirectY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.IndirectY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (Indirect, Y)", addr)
 
 		o.A = b
@@ -1168,8 +1170,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDX_I:
 		// load X immediate
 		o.Log("I: LDX ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.X = b
@@ -1179,8 +1181,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDX_ZP:
 		// load X zero page
 		o.Log("I: LDX ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.X = b
@@ -1190,8 +1192,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDX_ZPY:
 		// load X zero page, y index
 		o.Log("I: LDX ")
-		addr, _ := o.ZeroPageY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageY(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, Y)", addr)
 
 		o.X = b
@@ -1201,8 +1203,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDX_A:
 		// load X absolute
 		o.Log("I: LDX ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.X = b
@@ -1212,8 +1214,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDX_AY:
 		// load X absolute, y index
 		o.Log("I: LDX ")
-		addr, _ := o.AbsoluteY(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteY(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, Y)", addr)
 
 		o.X = b
@@ -1223,8 +1225,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDY_I:
 		// load Y immediate
 		o.Log("I: LDY ")
-		addr, _ := o.Immediate(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Immediate(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (Immediate)", b)
 
 		o.Y = b
@@ -1234,8 +1236,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDY_ZP:
 		// load Y zero page
 		o.Log("I: LDY ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		o.Y = b
@@ -1245,8 +1247,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDY_ZPX:
 		// load Y zero page, x index
 		o.Log("I: LDY ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, Y)", addr)
 
 		o.Y = b
@@ -1256,8 +1258,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDY_A:
 		// load Y absolute
 		o.Log("I: LDY ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		o.Y = b
@@ -1267,8 +1269,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LDY_AX:
 		// load Y absolute, x index
 		o.Log("I: LDY ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		o.Y = b
@@ -1353,8 +1355,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROL_ZP:
 		// rotate left, zerp page
 		o.Log("I: ROL ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1363,7 +1365,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v++
 		}
-		rom.Set(uint16(b), v)
+		io.Set(uint16(b), v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1371,8 +1373,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROL_ZPX:
 		// rotate left, zerp page, x
 		o.Log("I: ROL ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1381,7 +1383,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v++
 		}
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1389,8 +1391,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROL_A:
 		// rotate left, absolute
 		o.Log("I: ROL ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1399,7 +1401,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v++
 		}
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1407,8 +1409,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROL_AX:
 		// rotate left, absolute, x
 		o.Log("I: ROL ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1417,7 +1419,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v++
 		}
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1441,8 +1443,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROR_ZP:
 		// rotate left, zerp page
 		o.Log("I: ROR ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1451,7 +1453,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v |= 0b10000000 // bitset
 		}
-		rom.Set(uint16(b), v)
+		io.Set(uint16(b), v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1459,8 +1461,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROR_ZPX:
 		// rotate left, zerp page, x
 		o.Log("I: ROR ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1469,7 +1471,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v |= 0b10000000 // bitset
 		}
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1477,8 +1479,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROR_A:
 		// rotate left, absolute
 		o.Log("I: ROR ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 		carry := BitTest(Carry, o.Status)
 		b0 := BitTest(b, Bit0)
@@ -1486,7 +1488,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v |= 0b10000000 // bitset
 		}
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1494,8 +1496,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ROR_AX:
 		// rotate left, absolute, x
 		o.Log("I: ROR ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		carry := BitTest(Carry, o.Status)
@@ -1504,7 +1506,7 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		if carry {
 			v |= 0b10000000 // bitset
 		}
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1524,13 +1526,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ASL_ZP:
 		// arithmetic shift left, zero page
 		o.Log("I: ASL ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		b7 := BitTest(b, Bit7)
 		b = b << 1
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Negative, IsNegative(b))
 		o.SetStatus(Zero, b == 0)
@@ -1538,13 +1540,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ASL_ZPX:
 		// arithmetic shift left, zero page, x
 		o.Log("I: ASL ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		b7 := BitTest(b, Bit7)
 		v := b << 1
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1552,13 +1554,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ASL_A:
 		// arithmetic shift left, absolute
 		o.Log("I: ROL ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		b7 := BitTest(b, Bit7)
 		v := b << 1
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1566,13 +1568,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case ASL_AX:
 		// arithmetic shift left, absolute, x
 		o.Log("I: ASL ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		b7 := BitTest(b, Bit7)
 		v := b << 1
-		rom.Set(addr, v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1589,16 +1591,16 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LSR_ZP:
 		// logical shift right, zero page
 		o.Log("I: LSR ")
-		// zp, _ := rom.Get(o.PC)
+		// zp, _ := io.Get(o.PC)
 		// o.PC++
-		// b, _ := rom.Get(uint16(zp))
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		// b, _ := io.Get(uint16(zp))
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		carry := BitTest(Bit1, b)
 		b = b >> 1
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Negative, IsNegative(b))
 		o.SetStatus(Zero, b == 0)
@@ -1606,13 +1608,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LSR_ZPX:
 		// logical shift right, zero page
 		o.Log("I: LSR ")
-		addr, _ := o.ZeroPageX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPageX(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
 		carry := BitTest(Bit1, b)
 		b = b >> 1
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Negative, IsNegative(b))
 		o.SetStatus(Zero, b == 0)
@@ -1620,13 +1622,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LSR_A:
 		// logical shift right, absolute
 		o.Log("I: LSR ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		carry := BitTest(Bit1, b)
 		b = b >> 1
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Negative, IsNegative(b))
 		o.SetStatus(Zero, b == 0)
@@ -1634,13 +1636,13 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case LSR_AX:
 		// logical shift right, absolute, x
 		o.Log("I: LSR ")
-		addr, _ := o.AbsoluteX(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.AbsoluteX(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
 		carry := BitTest(Bit1, b)
 		b = b >> 1
-		rom.Set(addr, b)
+		io.Set(addr, b)
 
 		o.SetStatus(Negative, IsNegative(b))
 		o.SetStatus(Zero, b == 0)
@@ -1648,8 +1650,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BIT_ZP:
 		// bit zero page
 		o.Log("I: BIT ")
-		addr, _ := o.ZeroPage(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.ZeroPage(io)
+		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
 		a := o.A
@@ -1661,8 +1663,8 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 	case BIT_A:
 		// bit absolute
 		o.Log("I: BIT ")
-		addr, _ := o.Absolute(rom)
-		b, _ := rom.Get(addr)
+		addr, _ := o.Absolute(io)
+		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
 		a := o.A
@@ -1677,39 +1679,39 @@ func (o *CPU) Step(rom IO.Memory) (bool, error) {
 		// transfer x to stack
 		o.Log("I: TXS ")
 		o.SP--
-		rom.Set(STACK_HEAD+uint16(o.SP), o.X)
+		io.Set(STACK_HEAD+uint16(o.SP), o.X)
 	case TSX:
 		// transfer stack to x
 		o.Log("I: TSX ")
-		x, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		x, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.X = x
 		o.SP++
 	case PHA:
 		// push accumulater
 		o.Log("I: PHA ")
-		rom.Set(STACK_HEAD+uint16(o.SP), o.A)
+		io.Set(STACK_HEAD+uint16(o.SP), o.A)
 		o.SP--
 	case PLA:
 		// pull accumulater
 		o.Log("I: PLA ")
 		o.SP++
-		a, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		a, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.A = a
 	case PHP:
 		// push status to stack
 		o.Log("I: PHP ")
-		rom.Set(STACK_HEAD+uint16(o.SP), o.Status)
+		io.Set(STACK_HEAD+uint16(o.SP), o.Status)
 		o.SP--
 	case PLP:
 		// pull status from stack
 		o.Log("I: PLP ")
 		o.SP++
-		status, _ := rom.Get(STACK_HEAD + uint16(o.SP))
+		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.Status = status
 
 	case DEBUG:
 		o.Log("I: DEBUG ")
-		bp, _ := rom.Get(o.PC)
+		bp, _ := io.Get(o.PC)
 		o.PC++
 		o.Log("%02x (halted)", bp)
 		halted = true
@@ -1776,8 +1778,29 @@ func (o *CPU) DebugBits() {
 	fmt.Print("          NV-BDIZC\n\n")
 }
 
-// func (o *CPU) Write(rom *Memory.Memory, b uint8) error {
-// 	err := rom.Set(o.Address, b)
+func (o *CPU) DebugRegister(screen *ebiten.Image, font font.Face, bound image.Rectangle) {
+	x := 0
+	y := 0 + bound.Dy()
+
+	s := ""
+	s += "PC    SP  A    X    Y    Status     \n"
+	s += "-------------------------NV-BDIZC- ($SS)\n"
+	//          PC    SP    A      X      Y      Status
+	s += fmt.Sprintf("%04x  %02x  %02x   %02x   %02x   %08b  ($%02x)\n\n",
+		o.PC,
+		o.SP,
+		o.A,
+		o.X,
+		o.Y,
+		o.Status,
+		o.Status,
+	)
+
+	text.Draw(screen, s, font, x, y, color.White)
+}
+
+// func (o *CPU) Write(io *Memory.Memory, b uint8) error {
+// 	err := io.Set(o.Address, b)
 // 	return err
 // }
 
@@ -1785,74 +1808,74 @@ func (o *CPU) DebugBits() {
   Addressing Modes
 */
 
-func (o *CPU) Immediate(rom IO.Memory) (uint16, error) {
+func (o *CPU) Immediate(io IO.Memory) (uint16, error) {
 	o.Address = o.PC
 	o.PC += 1
 	return o.Address, nil
 }
 
-func (o *CPU) ZeroPage(rom IO.Memory) (uint16, error) {
-	zp, err := rom.Get(o.PC)
+func (o *CPU) ZeroPage(io IO.Memory) (uint16, error) {
+	zp, err := io.Get(o.PC)
 	o.PC += 1
 	o.Address = uint16(zp)
 	return o.Address, err
 }
 
-func (o *CPU) ZeroPageX(rom IO.Memory) (uint16, error) {
-	zp, err := rom.Get(o.PC)
+func (o *CPU) ZeroPageX(io IO.Memory) (uint16, error) {
+	zp, err := io.Get(o.PC)
 	o.PC += 1
 	o.Address = uint16(zp + o.X)
 	return o.Address, err
 }
 
-func (o *CPU) ZeroPageY(rom IO.Memory) (uint16, error) {
-	zp, err := rom.Get(o.PC)
+func (o *CPU) ZeroPageY(io IO.Memory) (uint16, error) {
+	zp, err := io.Get(o.PC)
 	o.PC += 1
 	o.Address = uint16(zp + o.Y)
 	return o.Address, err
 }
 
-func (o *CPU) Absolute(rom IO.Memory) (uint16, error) {
-	addr, err := rom.GetWord(o.PC)
+func (o *CPU) Absolute(io IO.Memory) (uint16, error) {
+	addr, err := io.GetWord(o.PC)
 	o.PC += 2
 	o.Address = addr
 	return o.Address, err
 }
 
-func (o *CPU) AbsoluteX(rom IO.Memory) (uint16, error) {
-	addr, err := rom.GetWord(o.PC)
+func (o *CPU) AbsoluteX(io IO.Memory) (uint16, error) {
+	addr, err := io.GetWord(o.PC)
 	o.PC += 2
 	o.Address = addr + uint16(o.X)
 	return o.Address, err
 }
 
-func (o *CPU) AbsoluteY(rom IO.Memory) (uint16, error) {
-	addr, err := rom.GetWord(o.PC)
+func (o *CPU) AbsoluteY(io IO.Memory) (uint16, error) {
+	addr, err := io.GetWord(o.PC)
 	o.PC += 2
 	o.Address = addr + uint16(o.Y)
 	return o.Address, err
 }
 
-func (o *CPU) Indirect(rom IO.Memory) (uint16, error) {
-	from, _ := rom.GetWord(o.PC)
+func (o *CPU) Indirect(io IO.Memory) (uint16, error) {
+	from, _ := io.GetWord(o.PC)
 	o.PC += 2
-	addr, err := rom.GetWord(from)
+	addr, err := io.GetWord(from)
 	o.Address = addr
 	return o.Address, err
 }
 
-func (o *CPU) IndirectX(rom IO.Memory) (uint16, error) {
-	zp, _ := rom.Get(o.PC)
+func (o *CPU) IndirectX(io IO.Memory) (uint16, error) {
+	zp, _ := io.Get(o.PC)
 	o.PC += 1
-	addr, err := rom.GetWord(uint16(zp + o.X))
+	addr, err := io.GetWord(uint16(zp + o.X))
 	o.Address = addr
 	return o.Address, err
 }
 
-func (o *CPU) IndirectY(rom IO.Memory) (uint16, error) {
-	zp, _ := rom.Get(o.PC)
+func (o *CPU) IndirectY(io IO.Memory) (uint16, error) {
+	zp, _ := io.Get(o.PC)
 	o.PC += 1
-	addr1, err := rom.GetWord(uint16(zp))
+	addr1, err := io.GetWord(uint16(zp))
 	addr := addr1 + uint16(o.Y)
 	o.Address = addr
 	return o.Address, err
