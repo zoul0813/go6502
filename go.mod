@@ -3,7 +3,6 @@ module github.com/zoul0813/go6502
 go 1.21.0
 
 require (
-	github.com/hajimehoshi/ebiten v1.12.12
 	github.com/hajimehoshi/ebiten/v2 v2.5.9
 	golang.org/x/image v0.10.0
 )

@@ -1778,10 +1778,7 @@ func (o *CPU) DebugBits() {
 	fmt.Print("          NV-BDIZC\n\n")
 }
 
-func (o *CPU) DebugRegister(screen *ebiten.Image, font font.Face, bound image.Rectangle) {
-	x := 0
-	y := 0 + bound.Dy()
-
+func (o *CPU) DebugRegister(screen *ebiten.Image, font font.Face, bound image.Rectangle, screenHeight int, screenWidth int) {
 	s := ""
 	s += "PC    SP  A    X    Y    Status     \n"
 	s += "-------------------------NV-BDIZC- ($SS)\n"
@@ -1796,7 +1793,18 @@ func (o *CPU) DebugRegister(screen *ebiten.Image, font font.Face, bound image.Re
 		o.Status,
 	)
 
-	text.Draw(screen, s, font, x, y, color.White)
+	scale := 2.0
+	x := float64(bound.Dx())
+	y := float64(bound.Dy())
+	x = float64(screenWidth) - ((x * scale) * 50) // width of string
+	y = float64(screenHeight) - ((y * scale) * 4) // number of lines
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	op.Filter = ebiten.FilterNearest
+	clr := color.RGBA{0, 110, 62, 20}
+	op.ColorScale.ScaleWithColor(clr)
+	text.DrawWithOptions(screen, s, font, op)
 }
 
 // func (o *CPU) Write(io *Memory.Memory, b uint8) error {

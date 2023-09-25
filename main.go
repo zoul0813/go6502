@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"log"
 	"os"
@@ -52,6 +53,7 @@ var (
 type Game struct {
 	// runes   []rune
 	// text    string
+	runes   []rune
 	counter int
 }
 
@@ -69,6 +71,9 @@ func (g *Game) Update() error {
 	// 	}
 	// }
 
+	g.runes = ebiten.AppendInputChars(g.runes[:0])
+	keyboard.AppendKeys(g.runes)
+
 	g.counter++
 	return nil
 }
@@ -77,50 +82,80 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Clear()
 	// Blink the cursor.
 
-	t := ""
+	t := display.All()
 	// if g.counter%60 < 30 {
 	// 	t += "_"
 	// }
 
-	for i := 0; i < 256; i++ {
-		if i%cols == 0 && len(t) > 0 {
-			t += "\n"
-		}
-		c, _ := display.Read(uint16(i))
-		if c >= 32 && c <= 126 {
-			t += string(c)
-		} else {
-			t += " "
-		}
-	}
+	// for i := 0; i < 256; i++ {
+	// 	if i%cols == 0 && len(t) > 0 {
+	// 		t += "\n"
+	// 	}
+	// 	c, _ := display.Read(uint16(i))
+	// 	if c >= 32 && c <= 126 {
+	// 		t += string(c)
+	// 	} else {
+	// 		t += " "
+	// 	}
+	// }
 
 	bound := text.BoundString(normalFont, "W")
 
 	x := 0
 	y := 0 + bound.Dy()
 
+	// op := &ebiten.DrawImageOptions{}
+	// op.GeoM.Scale(scale, scale)
+	// op.GeoM.Translate(0, 0)
+	// op.Filter = ebiten.FilterNearest
+	// op.ColorScale.ScaleWithColor(screenColor)
+	// text.DrawWithOptions(screen, t, normalFont, op)
 	text.Draw(screen, t, normalFont, x, y, screenColor)
 
-	b := cpu.PC
-	debug := fmt.Sprintf("%04x", b)
+	// b := cpu.PC
+	// debug := fmt.Sprintf("%04x", b)
 
 	// fmt.Printf("0x00: %02x\n", b)
 	// fmt.Printf("%v", t)
-	dx := pixelWidth - bound.Dx()*5
-	dy := pixelHeight - bound.Dy()
-	text.Draw(screen, debug, normalFont, dx, dy, screenColor)
-	cpu.DebugRegister(screen, normalFont, bound)
+	// dx := pixelWidth - bound.Dx()*5
+	// dy := pixelHeight - bound.Dy()
+
+	// op := &ebiten.DrawImageOptions{}
+	// op.GeoM.Scale(scale, scale)
+	// op.GeoM.Translate(float64(dx), float64(dy))
+	// op.Filter = ebiten.FilterNearest
+
+	// text.DrawWithOptions(screen, debug, normalFont, op)
+	cpu.DebugRegister(screen, normalFont, bound, screenHeight, screenWidth)
+	DebugZeroPage(screen, normalFont, bound)
+}
+
+func DebugZeroPage(screen *ebiten.Image, font font.Face, bound image.Rectangle) {
+	s := io.DumpString(0x00, 0xFF)
+
+	scale := 2.0
+	x := float64(bound.Dx())
+	y := float64(bound.Dy())
+	x = float64(screenWidth) - ((x * scale) * 50) // width of string
+	y = ((y * scale) * 4)                         // number of lines
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	op.Filter = ebiten.FilterNearest
+	clr := color.RGBA{0, 110, 62, 20}
+	op.ColorScale.ScaleWithColor(clr)
+	text.DrawWithOptions(screen, s, font, op)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return screenWidth / scale, screenHeight / scale
+	return screenWidth, screenHeight
 }
 
 func main() {
 	fmt.Printf("Go 6502... \n")
 
 	// RAM
-	ram = Memory.New(0x0000, 0x8000, true)
+	ram = Memory.New(0x8000, 0x0000, false)
 
 	// Display
 	display = Display.New(0xD012, cols, rows)
@@ -129,23 +164,28 @@ func main() {
 	keyboard = Keyboard.New(0xD010)
 
 	// ROM
-	rom = Memory.New(0xFFFF, 0x0000, false)
+	rom = Memory.New(0x1000, 0xF000, true)
 	f, err := os.ReadFile("rom/rom.bin")
 	if err != nil {
 		fmt.Printf("Can't read file rom/rom.bin\n\n")
 		panic(err)
 	}
 
-	fmt.Printf("Loading rom %04x (%v) bytes\n", len(f), len(f))
-	rom.Load(f)
-
 	devices := []*IO.Device{
-		// IO.NewDevice("RAM", ram, 0x8000, 0x0000),
-		// IO.NewDevice("Keyboard", keyboard, 0x01, 0xD010),
-		// IO.NewDevice("Display", display, 0x01, 0xD012),
-		IO.NewDevice("ROM", rom, 0xFFFF, 0x0000),
+		IO.NewDevice("RAM", ram, 0x0000),
+		IO.NewDevice("Keyboard", keyboard, 0xD010),
+		IO.NewDevice("Display", display, 0xD012),
+		IO.NewDevice("ROM", rom, 0xF000),
 	}
-	io = IO.New(devices, 0xFFFF)
+	io = IO.New(devices)
+
+	fmt.Printf("Loading rom %04x (%v) bytes\n", len(f), len(f))
+	io.LoadRom(f, 0xF000)
+	io.Dump(0xF000, 0xFF)
+
+	fmt.Printf("Loading ram %04x (%v) bytes\n", len(f), len(f))
+	io.LoadRom(f, 0x0000)
+	io.Dump(0x0000, 0xFF)
 
 	cpu = CPU.New(
 		0xfffc,     // PC
@@ -165,12 +205,19 @@ func main() {
 
 	// fmt.Printf("ZeroPage: %04x bytes from %04x\n", 0xff, 0x0000)
 	// io.Dump(0x0000, 0xff) // Zero Page
+
+	fmt.Printf("\n\n")
+	// Reset Vectors
 	fmt.Printf("Reset: %04x bytes from %04x\n", 0x0f, 0xfff0)
-	io.Dump(0xfff0, 0x0f) // Reset Vectors
-	fmt.Printf("ROM Head: %04x bytes from %04x\n", 0xff, 0xE000)
-	io.Dump(cpu.PC, 0xff) // Start of Program?
+	io.Dump(0xfff0, 0x0f)
+
+	// ROM Head
+	fmt.Printf("ROM Head: %04x bytes from %04x\n", 0xff, 0xF000)
+	io.Dump(0xF000, 0xFF)
+
+	// Start of Program?
 	fmt.Printf("Program: %04x bytes from %04x\n", 0xff, cpu.PC)
-	io.Dump(cpu.PC, 0xff) // Reset Vector goes to?
+	io.Dump(cpu.PC, 0xff)
 
 	g := &Game{
 		// text:    "GO6502\nv0.0.0\n\n% ",

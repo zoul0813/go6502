@@ -22,6 +22,9 @@ DSPCR           = $D013         ;  PIA.B display control register
 
 .segment "KERNAL"
 
+.export RESET
+.import ENTRY
+
 RESET:          CLD             ; Clear decimal arithmetic mode.
                 CLI
                 LDY #$7F        ; Mask for DSP data direction register.
@@ -151,6 +154,12 @@ ECHO:           BIT DSP         ; bit (B7) cleared yet?
                 BRK             ; unused
 
 ;;; Vectors moved to rom.s because reasons ... :shrug:
+	.WORD $0F00     ; NMI
+	.WORD ENTRY     ; RESET
+	.WORD $0000     ; BRK/IRQ
+
+; ; ; Interrupt Vectors
+; .segment "VECTORS"
 ; 	.WORD $0F00     ; NMI
-; 	.WORD RESET     ; RESET
+; 	.WORD ENTRY     ; RESET
 ; 	.WORD $0000     ; BRK/IRQ
