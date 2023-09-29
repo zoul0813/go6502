@@ -39,6 +39,7 @@ func (o *Memory) Set(addr uint16, value byte) error {
 	// defer o.mutex.Unlock()
 
 	if o.ReadOnly {
+		fmt.Printf("attempt to write to ROM at %04x\n", addr)
 		return fmt.Errorf("attempt to write to ROM at %04x", addr)
 	}
 

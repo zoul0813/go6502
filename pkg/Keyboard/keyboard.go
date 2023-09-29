@@ -16,11 +16,14 @@ func New(offset uint16) *Keyboard {
 	}
 }
 
-func (k *Keyboard) AppendKeys(keys []rune) {
-	for _, key := range keys {
-		k.buffer = append(k.buffer, byte(0x80|key))
-	}
-	// fmt.Printf("Keyboard: %v\n", k.buffer)
+// func (k *Keyboard) AppendKeys(keys []byte) {
+// 	for _, key := range keys {
+// 		k.buffer = append(k.buffer, key)
+// 	}
+// }
+
+func (k *Keyboard) AppendKey(key byte) {
+	k.buffer = append(k.buffer, key)
 }
 
 // IO.Memory Interface
@@ -47,9 +50,12 @@ func (k *Keyboard) SetWord(addr uint16, value uint16) error {
 }
 
 func (k *Keyboard) Get(addr uint16) (byte, error) {
-	// always return ready?
 	if addr == k.offset+1 {
-		return 0x80, nil
+		if len(k.buffer) > 0 {
+			return 0x80, nil
+		} else {
+			return 0x00, nil
+		}
 	}
 
 	if len(k.buffer) > 1 {

@@ -93,6 +93,10 @@ func IsOverflow(prev uint8, current uint8) bool {
 	return v != 0
 }
 
+func Relative(value uint8) int8 {
+	return int8(value)
+}
+
 func New(
 	PC uint16,
 	SP uint8,
@@ -181,90 +185,58 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		// branch on plus
 		o.Log("I: BPL ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		neg := BitTest(Negative, o.Status)
-		if !neg {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, !neg)
 	case BMI:
 		// branch on minus
 		o.Log("I: BMI ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		neg := BitTest(Negative, o.Status)
-		if neg {
-			o.Log(" Taken %02x | %08b", rel, rel)
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, neg)
 	case BVC:
 		// branch on overflow clear
 		o.Log("I: BVC ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		overflow := BitTest(Overflow, o.Status)
-		if !overflow {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, !overflow)
 	case BVS:
 		// branch on overflow set
 		o.Log("I: BVS ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		overflow := BitTest(Overflow, o.Status)
-		if overflow {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, overflow)
 	case BCC:
 		// branch on carry clear
 		o.Log("I: BCC ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		carry := BitTest(Carry, o.Status)
-		if !carry {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, !carry)
 	case BCS:
 		// branch on carry set
 		o.Log("I: BCS ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		carry := BitTest(Carry, o.Status)
-		if carry {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, carry)
 	case BNE:
 		// branch on not equal
 		o.Log("I: BNE ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		zero := BitTest(Zero, o.Status)
-		if !zero {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, !zero)
 	case BEQ:
 		// branch on equal
 		o.Log("I: BEQ ")
 		rel, _ := io.Get(o.PC)
-		o.PC++
 		o.Log("%02x (Rel)", rel)
 		zero := BitTest(Zero, o.Status)
-		if zero {
-			o.Log(" Taken")
-			o.PC += uint16(rel)
-		}
+		o.Branch(rel, zero)
 
 	// Misc
 	case BRK: // TODO: NMI
@@ -1932,4 +1904,17 @@ func (o *CPU) ADC(operand uint8) uint8 {
 
 func (o *CPU) SBC(operand uint8) uint8 {
 	return o.ADC(^operand)
+}
+
+func (o *CPU) Branch(rel uint8, cond bool) {
+	if cond {
+		j := ^rel + 1
+		o.Log(" Taken, %02x %08b | %02x %08b %v", rel, rel, j, j, j)
+		if BitTest(Bit7, rel) {
+			o.PC -= uint16(j)
+		} else {
+			o.PC += uint16(j)
+		}
+	}
+	o.PC++
 }

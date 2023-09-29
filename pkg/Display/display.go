@@ -1,6 +1,8 @@
 package Display
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Display struct {
 	buffer []byte
@@ -25,14 +27,16 @@ func New(offset uint16, cols int, rows int) *Display {
 }
 
 func (d *Display) All() string {
-	t := string(d.buffer)
+	t := ""
 
-	// all := ""
-	// for i := 0; i < d.rows; i++ {
-	// 	line := t[i*d.cols : (i+1)*d.cols]
-	// 	line += "\n"
-	// 	all += line
-	// }
+	for i := 0; i < d.size; i++ {
+		b := d.buffer[i]
+		// convert CR to LF
+		if b == 13 {
+			b = 10
+		}
+		t += string(b)
+	}
 
 	return t
 }
@@ -55,8 +59,11 @@ func (d *Display) Set(addr uint16, value byte) error {
 		return nil
 	}
 
-	fmt.Printf("display: set: $%04x $%02x\n", addr, value)
-	d.buffer[d.index] = value
+	c := value & 0b01111111
+
+	fmt.Printf("display: set: $%04x $%02x %v '%v'\n", addr, value, c, string(c))
+	// strip bit 7
+	d.buffer[d.index] = c
 	d.index++
 	if d.index >= d.size {
 		d.index = 0
@@ -75,7 +82,11 @@ func (d *Display) SetWord(addr uint16, value uint16) error {
 }
 
 func (d *Display) Get(addr uint16) (byte, error) {
-	return d.buffer[addr-d.offset], nil
+	if addr == d.offset+1 {
+		return d.mode, nil
+	}
+
+	return 0x00, nil
 }
 
 func (d *Display) GetWord(addr uint16) (uint16, error) {

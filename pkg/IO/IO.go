@@ -209,7 +209,7 @@ func (io *IO) DumpString(addr uint16, size uint16) string {
 	}
 
 	s += fmt.Sprintf("Memory Dump (%04x:%04x)\n", addr, addr+size)
-	s += "---- 0001 0203 0405 0607 0809 0A0B 0C0D 0E0F\n"
+	s += "ADDR 0001 0203 0405 0607 0809 0A0B 0C0D 0E0F\n"
 	s += "---- ---- ---- ---- ---- ---- ---- ---- ----\n"
 	// fmt.Printf("0000000 2aa5 3818 0000 0000 0000 0000 0000 0000")
 	var lcv int = 0
@@ -225,13 +225,13 @@ func (io *IO) DumpString(addr uint16, size uint16) string {
 				i++
 			}
 
-			s += fmt.Sprintf("%02x%02x", w1, w2)
+			s += fmt.Sprintf("%02x%02x ", w1, w2)
 			lcv++
 		}
 
 		s += "\n"
 	}
-	s += "------- ---- ---- ---- ---- ---- ---- ---- ----\n"
-	s += fmt.Sprintf("%v bytes, %v loops, (%07x:%07x):%07x\n\n", size+1, lcv, addr, end, i)
+	s += "---- ---- ---- ---- ---- ---- ---- ---- ----\n"
+	s += fmt.Sprintf("%v bytes, (%04x:%04x):%04x\n\n", size+1, addr, end, i)
 	return s
 }
