@@ -90,8 +90,8 @@ func (io *IO) Set(addr uint16, value byte) error {
 	// fmt.Printf(" %02x -> %04x...\n", value, addr)
 	chip := device.Chip
 	io.mutex.Lock()
+	defer io.mutex.Unlock()
 	err = chip.Set(addr, value)
-	io.mutex.Unlock()
 	// device.Chip = &chip
 	// fmt.Print(" Done\n")
 	return err
@@ -118,6 +118,8 @@ func (io *IO) Get(addr uint16) (byte, error) {
 		return 0xEA, err
 	}
 	chip := device.Chip
+	io.mutex.Lock()
+	defer io.mutex.Unlock()
 	return chip.Get(addr)
 }
 
@@ -128,6 +130,8 @@ func (io *IO) GetWord(addr uint16) (uint16, error) {
 		return 0xEAEA, err
 	}
 	chip := device.Chip
+	io.mutex.Lock()
+	defer io.mutex.Unlock()
 	return chip.GetWord(addr)
 }
 

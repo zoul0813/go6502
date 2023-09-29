@@ -1913,7 +1913,7 @@ func (o *CPU) Branch(rel uint8, cond bool) {
 		if BitTest(Bit7, rel) {
 			o.PC -= uint16(j)
 		} else {
-			o.PC += uint16(j)
+			o.PC += uint16(0b01111111 & rel)
 		}
 	}
 	o.PC++

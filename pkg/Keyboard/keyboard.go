@@ -52,12 +52,14 @@ func (k *Keyboard) SetWord(addr uint16, value uint16) error {
 func (k *Keyboard) Get(addr uint16) (byte, error) {
 	if addr == k.offset+1 {
 		if len(k.buffer) > 0 {
+			fmt.Printf("Buffer: %v", k.buffer)
 			return 0x80, nil
 		} else {
 			return 0x00, nil
 		}
 	}
 
+	fmt.Printf("Buffer: %v", k.buffer)
 	if len(k.buffer) > 1 {
 		key := k.buffer[0]
 		k.buffer = k.buffer[1:]
@@ -65,7 +67,7 @@ func (k *Keyboard) Get(addr uint16) (byte, error) {
 		// set bit 7 to 1
 		return 0x80 | key, nil
 	}
-	return 0x00, nil
+	return 0x80, nil
 
 	// return byte(key), fmt.Errorf("Keyboard: read-only, invalid memory access")
 }

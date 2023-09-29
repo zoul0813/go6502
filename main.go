@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -22,9 +23,6 @@ import (
 )
 
 const (
-	// CLOCK_SPEED = time.Nanosecond * 1000 // 1Mhz
-	// CLOCK_SPEED = time.Nanosecond * 10000 // 100Hz?
-	CLOCK_SPEED         = time.Millisecond * 500 // 10Hz
 	ROM_HEAD            = 0x8000
 	ZP_HEAD             = 0x000
 	STACK_HEAD          = 0x100
@@ -42,8 +40,12 @@ const (
 )
 
 var (
-	normalFont  font.Face
-	io          *IO.IO
+	normalFont font.Face
+	io         *IO.IO
+	clockSpeed = time.Nanosecond * 1000 // 1Mhz
+	// clockSpeed = time.Nanosecond * 10000 // 100Hz?
+	// TODO: make the clockSpeed variable with an argunment
+	// clockSpeed  = time.Millisecond * 100 // 10Hz
 	cpu         *CPU.CPU
 	ram         *Memory.Memory
 	keyboard    *Keyboard.Keyboard
@@ -192,6 +194,27 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func main() {
 	fmt.Printf("Go 6502... \n")
 
+	// set clockSpeed to value of CLI argument
+	clockMultiplier := 1000 // 1000Khz
+	flag.IntVar(&clockMultiplier, "clock", 1000, "Clock Speed (kHz)")
+	singleStep := false
+	debugMode := false
+	hz := false
+	flag.BoolVar(&singleStep, "single", false, "Single Step")
+	flag.BoolVar(&debugMode, "debug", false, "Debug Mode")
+	flag.BoolVar(&hz, "hz", false, "Set Clock to Hz")
+	flag.Parse()
+
+	// calculate the clock speed using kHz
+	khz := time.Microsecond * 1_000
+	if hz {
+		khz = time.Microsecond * 1_000_000
+	}
+	d := khz / time.Duration(clockMultiplier)
+	clockSpeed = time.Nanosecond * d
+	fmt.Printf("Clock Mult : %v (%v)\n", clockMultiplier, d)
+	fmt.Printf("Clock Speed: %v\n", clockSpeed)
+
 	// RAM
 	ram = Memory.New(0x8000, 0x0000, false)
 
@@ -232,8 +255,8 @@ func main() {
 		0xf0,       // X
 		0xFE,       // Y
 		0b00110000, // Status
-		false,      // Single Step
-		false,      // DebugMode
+		singleStep, // Single Step
+		debugMode,  // DebugMode
 	)
 
 	word, _ := io.GetWord(cpu.PC)
@@ -291,7 +314,7 @@ func main() {
 	ebiten.SetTPS(frameRate)
 
 	doQuit := false
-	cpuClock := time.NewTicker(CLOCK_SPEED)
+	cpuClock := time.NewTicker(clockSpeed)
 	defer cpuClock.Stop()
 
 	go func() {
