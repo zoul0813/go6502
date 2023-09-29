@@ -16,16 +16,9 @@ ENTRY:
 
 loop:
 	LDA KBD         ; Load character. B7 should be ‘1’.
-	TYA
-	STA $0400,x
-	INX
-	INY
-	CPY #126
-	BNE :+
-	LDY #32
-:
-	STA $00
 	STA DSP
+	STA $01
+:
 	JMP loop
 
 UAPUTW:

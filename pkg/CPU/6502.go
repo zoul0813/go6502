@@ -119,8 +119,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	halted := false
 	b, _ := io.Get(o.PC)
 	var instr OpCode = OpCode(b)
+	o.Log("Instruction: %02x @ %04x\n", instr, o.PC)
 	o.PC++ // increment the stack pointer
-	o.Log("Instruction: %02x\n", instr)
 	switch instr {
 	// Jump/Branch Instructions
 	case JMP_A:
@@ -185,6 +185,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		neg := BitTest(Negative, o.Status)
 		if !neg {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 	case BMI:
@@ -195,6 +196,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		neg := BitTest(Negative, o.Status)
 		if neg {
+			o.Log(" Taken %02x | %08b", rel, rel)
 			o.PC += uint16(rel)
 		}
 	case BVC:
@@ -205,6 +207,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		overflow := BitTest(Overflow, o.Status)
 		if !overflow {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 	case BVS:
@@ -215,6 +218,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		overflow := BitTest(Overflow, o.Status)
 		if overflow {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 	case BCC:
@@ -225,6 +229,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		carry := BitTest(Carry, o.Status)
 		if !carry {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 	case BCS:
@@ -235,6 +240,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		carry := BitTest(Carry, o.Status)
 		if carry {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 	case BNE:
@@ -245,6 +251,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		zero := BitTest(Zero, o.Status)
 		if !zero {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 	case BEQ:
@@ -255,6 +262,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("%02x (Rel)", rel)
 		zero := BitTest(Zero, o.Status)
 		if zero {
+			o.Log(" Taken")
 			o.PC += uint16(rel)
 		}
 
@@ -1793,13 +1801,13 @@ func (o *CPU) DebugRegister(screen *ebiten.Image, font font.Face, bound image.Re
 		o.Status,
 	)
 
-	scale := 2.0
+	dScale := 2.0
 	x := float64(bound.Dx())
 	y := float64(bound.Dy())
-	x = float64(screenWidth) - ((x * scale) * 50) // width of string
-	y = float64(screenHeight) - ((y * scale) * 4) // number of lines
+	x = float64(screenWidth) - ((x * dScale) * 50) // width of string
+	y = float64(screenHeight) - ((y * dScale) * 4) // number of lines
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
+	op.GeoM.Scale(dScale, dScale)
 	op.GeoM.Translate(float64(x), float64(y))
 	op.Filter = ebiten.FilterNearest
 	clr := color.RGBA{0, 110, 62, 20}

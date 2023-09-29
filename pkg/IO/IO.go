@@ -76,18 +76,22 @@ func (io *IO) Size() uint16 {
 }
 
 func (io *IO) Set(addr uint16, value byte) error {
+	// we don't print empty/null values
+	if value == 0 {
+		return nil
+	}
 	var err error
 	device, err := io.getDevice(addr)
 	if err != nil {
 		fmt.Printf("Error: Device not found: %v\n", err)
 		return err
 	}
-	// fmt.Printf("\tFound: %v, locking...", device.Name)
+	// fmt.Printf("Found: %v, locking...", device.Name)
+	// fmt.Printf(" %02x -> %04x...\n", value, addr)
 	chip := device.Chip
 	io.mutex.Lock()
-	defer io.mutex.Unlock()
-	// fmt.Printf(" %02x -> %04x...", value, addr)
 	err = chip.Set(addr, value)
+	io.mutex.Unlock()
 	// device.Chip = &chip
 	// fmt.Print(" Done\n")
 	return err

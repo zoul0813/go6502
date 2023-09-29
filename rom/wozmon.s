@@ -155,7 +155,7 @@ ECHO:           BIT DSP         ; bit (B7) cleared yet?
 
 ;;; Vectors moved to rom.s because reasons ... :shrug:
 	.WORD $0F00     ; NMI
-	.WORD ENTRY     ; RESET
+	.WORD RESET     ; RESET
 	.WORD $0000     ; BRK/IRQ
 
 ; ; ; Interrupt Vectors

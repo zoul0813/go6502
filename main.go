@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/zoul0813/go6502/pkg/CPU"
 	"github.com/zoul0813/go6502/pkg/Display"
@@ -21,8 +22,9 @@ import (
 )
 
 const (
-	// CLOCK_SPEED         = time.Nanosecond * 1000 // 1Mhz
-	CLOCK_SPEED         = time.Millisecond * 100 // 1Mhz
+	// CLOCK_SPEED = time.Nanosecond * 1000 // 1Mhz
+	CLOCK_SPEED = time.Nanosecond * 10000 // 1Mhz
+	// CLOCK_SPEED         = time.Millisecond * 100 // 1Mhz
 	ROM_HEAD            = 0x8000
 	ZP_HEAD             = 0x000
 	STACK_HEAD          = 0x100
@@ -32,7 +34,7 @@ const (
 	rows                = 25
 	fontSize            = 8
 	padding             = 32
-	frameRate           = 30
+	frameRate           = 60
 	pixelWidth          = (fontSize * cols)
 	pixelHeight         = (fontSize * rows)
 	screenWidth         = pixelWidth * scale
@@ -47,14 +49,17 @@ var (
 	keyboard    *Keyboard.Keyboard
 	display     *Display.Display
 	rom         *Memory.Memory
-	screenColor = color.RGBA{75, 220, 125, 20}
+	screenColor = color.RGBA{4, 101, 13, 20}
 )
 
 type Game struct {
 	// runes   []rune
 	// text    string
-	runes   []rune
-	counter int
+	runes         []rune
+	counter       int
+	showRegisters bool
+	showZeroPage  bool
+	// shader        *ebiten.Shader // Shaders appear to be voodoo magic?
 }
 
 func (g *Game) Update() error {
@@ -71,6 +76,22 @@ func (g *Game) Update() error {
 	// 	}
 	// }
 
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		return fmt.Errorf("quit")
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		keyboard.AppendKeys([]rune{'\n'})
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
+		g.showRegisters = !g.showRegisters
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
+		g.showZeroPage = !g.showZeroPage
+	}
+
 	g.runes = ebiten.AppendInputChars(g.runes[:0])
 	keyboard.AppendKeys(g.runes)
 
@@ -80,37 +101,20 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Clear()
-	// Blink the cursor.
 
 	t := display.All()
-	// if g.counter%60 < 30 {
-	// 	t += "_"
-	// }
-
-	// for i := 0; i < 256; i++ {
-	// 	if i%cols == 0 && len(t) > 0 {
-	// 		t += "\n"
-	// 	}
-	// 	c, _ := display.Read(uint16(i))
-	// 	if c >= 32 && c <= 126 {
-	// 		t += string(c)
-	// 	} else {
-	// 		t += " "
-	// 	}
-	// }
 
 	bound := text.BoundString(normalFont, "W")
 
 	x := 0
 	y := 0 + bound.Dy()
 
-	// op := &ebiten.DrawImageOptions{}
-	// op.GeoM.Scale(scale, scale)
-	// op.GeoM.Translate(0, 0)
-	// op.Filter = ebiten.FilterNearest
-	// op.ColorScale.ScaleWithColor(screenColor)
-	// text.DrawWithOptions(screen, t, normalFont, op)
-	text.Draw(screen, t, normalFont, x, y, screenColor)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	op.Filter = ebiten.FilterNearest
+	op.ColorScale.ScaleWithColor(screenColor)
+	text.DrawWithOptions(screen, t, normalFont, op)
 
 	// b := cpu.PC
 	// debug := fmt.Sprintf("%04x", b)
@@ -126,20 +130,24 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// op.Filter = ebiten.FilterNearest
 
 	// text.DrawWithOptions(screen, debug, normalFont, op)
-	cpu.DebugRegister(screen, normalFont, bound, screenHeight, screenWidth)
-	DebugZeroPage(screen, normalFont, bound)
+	if g.showRegisters {
+		cpu.DebugRegister(screen, normalFont, bound, screenHeight, screenWidth)
+	}
+	if g.showZeroPage {
+		DebugZeroPage(screen, normalFont, bound)
+	}
 }
 
 func DebugZeroPage(screen *ebiten.Image, font font.Face, bound image.Rectangle) {
 	s := io.DumpString(0x00, 0xFF)
 
-	scale := 2.0
+	dScale := 2.0
 	x := float64(bound.Dx())
 	y := float64(bound.Dy())
-	x = float64(screenWidth) - ((x * scale) * 50) // width of string
-	y = ((y * scale) * 4)                         // number of lines
+	x = float64(screenWidth) - ((x * dScale) * 50) // width of string
+	y = ((y * dScale) * 4)                         // number of lines
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
+	op.GeoM.Scale(dScale, dScale)
 	op.GeoM.Translate(float64(x), float64(y))
 	op.Filter = ebiten.FilterNearest
 	clr := color.RGBA{0, 110, 62, 20}
@@ -157,11 +165,11 @@ func main() {
 	// RAM
 	ram = Memory.New(0x8000, 0x0000, false)
 
-	// Display
-	display = Display.New(0xD012, cols, rows)
-
 	// Keyboard
 	keyboard = Keyboard.New(0xD010)
+
+	// Display
+	display = Display.New(0xD012, cols, rows)
 
 	// ROM
 	rom = Memory.New(0x1000, 0xF000, true)
@@ -183,9 +191,9 @@ func main() {
 	io.LoadRom(f, 0xF000)
 	io.Dump(0xF000, 0xFF)
 
-	fmt.Printf("Loading ram %04x (%v) bytes\n", len(f), len(f))
+	// fmt.Printf("Loading ram %04x (%v) bytes\n", len(f), len(f))
 	io.LoadRom(f, 0x0000)
-	io.Dump(0x0000, 0xFF)
+	// io.Dump(0x0000, 0xFF)
 
 	cpu = CPU.New(
 		0xfffc,     // PC
@@ -195,7 +203,7 @@ func main() {
 		0xFE,       // Y
 		0b00110000, // Status
 		false,      // Single Step
-		false,      // DebugMode
+		true,       // DebugMode
 	)
 
 	word, _ := io.GetWord(cpu.PC)
@@ -221,7 +229,9 @@ func main() {
 
 	g := &Game{
 		// text:    "GO6502\nv0.0.0\n\n% ",
-		counter: 0,
+		counter:       0,
+		showRegisters: false,
+		showZeroPage:  false,
 	}
 
 	fontFile, err := os.ReadFile("assets/fonts/C64_Pro_Mono-STYLE.ttf")
@@ -260,6 +270,9 @@ func main() {
 			}
 			<-cpuClock.C
 			halted, _ := cpu.Step(io)
+			if cpu.DebugMode {
+				cpu.Debug()
+			}
 			if halted {
 				fmt.Printf("Halted: %v", cpu)
 			}

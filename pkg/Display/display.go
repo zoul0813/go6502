@@ -7,47 +7,55 @@ type Display struct {
 	index  int
 	size   int
 	offset uint16
+	cols   int
+	rows   int
+	mode   uint8
 }
 
 func New(offset uint16, cols int, rows int) *Display {
 	return &Display{
 		offset: offset,
 		index:  0,
+		cols:   cols,
+		rows:   rows,
 		size:   cols * rows,
 		buffer: make([]byte, cols*rows),
+		mode:   0x00,
 	}
 }
 
 func (d *Display) All() string {
 	t := string(d.buffer)
-	// fmt.Printf("Display:All: %v\n%v\n", len(t), d.buffer)
+
+	// all := ""
+	// for i := 0; i < d.rows; i++ {
+	// 	line := t[i*d.cols : (i+1)*d.cols]
+	// 	line += "\n"
+	// 	all += line
+	// }
+
 	return t
 }
-
-// func (d *Display) Write(addr uint16, value byte) error {
-// 	if addr >= uint16(d.size) {
-// 		return fmt.Errorf("Display: Out of range %02x", addr)
-// 	}
-
-// 	d.buffer[addr] = value
-// 	return nil
-// }
-
-// func (d *Display) Read(addr uint16) (byte, error) {
-// 	if addr >= uint16(d.size) {
-// 		return 0x00, fmt.Errorf("Display: Out of range %02x", addr)
-// 	}
-// 	return d.buffer[addr], nil
-// }
 
 // IO.Memory Interface
 
 func (d *Display) Size() uint16 {
-	return 2
+	return 1
 }
 
 func (d *Display) Set(addr uint16, value byte) error {
-	fmt.Printf("Display: Set: $%04x $%02x\n", addr, value)
+	if addr == d.offset+1 {
+		fmt.Printf("display setting control registers: $%04x $%02x\n", addr, value)
+		d.mode = value
+		return nil
+	}
+
+	if d.mode == 0x00 {
+		fmt.Printf("display in configuration mode, ignoring: $%04x $%02x\n", addr, value)
+		return nil
+	}
+
+	fmt.Printf("display: set: $%04x $%02x\n", addr, value)
 	d.buffer[d.index] = value
 	d.index++
 	if d.index >= d.size {
