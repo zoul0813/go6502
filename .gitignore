@@ -3,6 +3,7 @@
 *.map.txt
 *.bin
 *.o
+*.log
 
 bin/
 tmp/
