@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -63,39 +64,12 @@ type Game struct {
 	showRegisters bool
 	showZeroPage  bool
 	showWozIn     bool
+	singleStep    bool
 	// shader        *ebiten.Shader // Shaders appear to be voodoo magic?
 }
 
 func (g *Game) Update() error {
 	// Keyboard input
-	// If the enter key is pressed, add a line break.
-	// if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
-	// 	text += "\n"
-	// }
-
-	// If the backspace key is pressed, remove one character.
-	// if repeatingKeyPressed(ebiten.KeyBackspace) {
-	// 	if len(text) >= 1 {
-	// 		text = text[:len(g.text)-1]
-	// 	}
-	// }
-
-	// if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-	// }
-
-	// if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-	// }
-
-	// if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
-	// }
-
-	// if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
-
-	// }
-
-	// if inpututil.IsKeyJustPressed(ebiten.KeyF5) {
-	// }
-
 	g.keys = inpututil.AppendJustPressedKeys(g.keys[:0])
 
 	for _, key := range g.keys {
@@ -108,19 +82,41 @@ func (g *Game) Update() error {
 			g.showWozIn = !g.showWozIn
 		case ebiten.KeyF5:
 			return fmt.Errorf("quit")
+		case ebiten.KeyF7:
+			cpu.SingleStep = !cpu.SingleStep
+			g.singleStep = cpu.SingleStep
+			fmt.Printf("SingleStep: CPU: %v, Game: %v\n", cpu.SingleStep, g.singleStep)
+		case ebiten.KeyF8:
+			if !cpu.SingleStep {
+				continue
+			}
+			halted, _ := cpu.Step(io)
+			if cpu.DebugMode {
+				cpu.Debug()
+			}
+			if halted {
+				fmt.Printf("Halted: %v", cpu)
+			}
 		case ebiten.KeyEscape:
 			keyboard.AppendKey(0x1B) // ESC 27
 		case ebiten.KeyEnter:
 			keyboard.AppendKey(0x0D) // LF 10
 		default:
-			fmt.Printf("KeyCode: %v\n", key)
-			name := ebiten.KeyName(key)
-			fmt.Printf("KeyName: %v\n", name)
-			if len(name) > 0 {
-				b := name[0]
-				fmt.Printf("Key: %02x %08b '%v'\n", b, b, string(b))
+			var buffer []rune
+			buffer = ebiten.AppendInputChars(buffer[:0])
+			for _, r := range buffer {
+				b := strings.ToUpper(string(byte(r)))[0]
+				fmt.Printf("Key: %02x %02x '%v' '%v'\n", r, b, b, string(b))
 				keyboard.AppendKey(b)
 			}
+			// fmt.Printf("KeyCode: %v, %v\n", key, buffer)
+			// name := ebiten.KeyName(key)
+			// fmt.Printf("KeyName: %v\n", name)
+			// if len(name) > 0 {
+			// 	b := name[0]
+			// 	fmt.Printf("Key: %02x %08b '%v'\n", b, b, string(b))
+			// 	keyboard.AppendKey(b)
+			// }
 		}
 	}
 
@@ -145,26 +141,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	op.ColorScale.ScaleWithColor(screenColor)
 	text.DrawWithOptions(screen, t, normalFont, op)
 
-	// b := cpu.PC
-	// debug := fmt.Sprintf("%04x", b)
-
-	// fmt.Printf("0x00: %02x\n", b)
-	// fmt.Printf("%v", t)
-	// dx := pixelWidth - bound.Dx()*5
-	// dy := pixelHeight - bound.Dy()
-
-	// op := &ebiten.DrawImageOptions{}
-	// op.GeoM.Scale(scale, scale)
-	// op.GeoM.Translate(float64(dx), float64(dy))
-	// op.Filter = ebiten.FilterNearest
-
-	// text.DrawWithOptions(screen, debug, normalFont, op)
 	if g.showRegisters {
 		cpu.DebugRegister(screen, normalFont, bound, screenHeight, screenWidth)
 	}
+
 	if g.showZeroPage {
 		DebugMemory(0x00, 0xFF, screen, normalFont, bound)
 	}
+
 	if g.showWozIn {
 		DebugMemory(0x0200, 0xFF, screen, normalFont, bound)
 	}
@@ -196,15 +180,16 @@ func processTicks() {
 	defer cpuClock.Stop()
 
 	for {
-		// if doQuit {
-		// 	return
-		// }
 		<-cpuClock.C
+		if cpu.SingleStep {
+			continue
+		}
 		halted, _ := cpu.Step(io)
 		if cpu.DebugMode {
 			cpu.Debug()
 		}
 		if halted {
+			cpu.SingleStep = true
 			fmt.Printf("Halted: %v", cpu)
 		}
 	}
@@ -236,6 +221,7 @@ func main() {
 
 	// RAM
 	ram = Memory.New(0x8000, 0x0000, false)
+	// ram = Memory.New(0xFFFF, 0x0000, false)
 
 	// Keyboard
 	keyboard = Keyboard.New(0xD010)
@@ -261,11 +247,12 @@ func main() {
 
 	fmt.Printf("Loading rom %04x (%v) bytes\n", len(f), len(f))
 	io.LoadRom(f, 0xF000)
+	io.Set(0x0000, 0x55)
+	io.Set(0x00FF, 0x33)
 	io.Dump(0xF000, 0xFF)
 
 	// fmt.Printf("Loading ram %04x (%v) bytes\n", len(f), len(f))
-	io.LoadRom(f, 0x0000)
-	// io.Dump(0x0000, 0xFF)
+	// io.LoadRom(f, 0x0000)
 
 	cpu = CPU.New(
 		0xfffc,     // PC
@@ -280,8 +267,6 @@ func main() {
 
 	word, _ := io.GetWord(cpu.PC)
 	cpu.PC = word
-
-	cpu.Debug()
 
 	// fmt.Printf("ZeroPage: %04x bytes from %04x\n", 0xff, 0x0000)
 	// io.Dump(0x0000, 0xff) // Zero Page
@@ -299,12 +284,15 @@ func main() {
 	fmt.Printf("Program: %04x bytes from %04x\n", 0xff, cpu.PC)
 	io.Dump(cpu.PC, 0xff)
 
+	cpu.Debug()
+
 	g := &Game{
 		// text:    "GO6502\nv0.0.0\n\n% ",
 		counter:       0,
 		showRegisters: false,
 		showZeroPage:  false,
 		showWozIn:     false,
+		singleStep:    singleStep,
 	}
 
 	fontFile, err := os.ReadFile("assets/fonts/C64_Pro_Mono-STYLE.ttf")
@@ -332,7 +320,9 @@ func main() {
 	ebiten.SetWindowTitle("TypeWriter (Ebitengine Demo)")
 	ebiten.SetTPS(frameRate)
 
-	go processTicks()
+	if !singleStep {
+		go processTicks()
+	}
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)

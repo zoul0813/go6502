@@ -3,6 +3,10 @@
 .word start     ; 0xfffc
 .word start     ; 0xfffe
 
+.segment "ZEROPAGE"
+zeropage:
+.byte $a1, $a2, $a3, $a4, $a5
+
 .segment "CODE"
 
 start:
@@ -257,6 +261,7 @@ test01:
 
 ; expected result: $71 = 0xFF
 test02:
+	.byte $FF, $02 ; expected result: $71 = 0xFF
 	LDA #$FF
 	LDX #$00
 
@@ -945,5 +950,5 @@ suiteafinal:
 
 theend:
 	; EXPECTED FINAL RESULTS: $0210 = FF
-  .byte $FF, $FF    ; DebugConsole
+  ; .byte $FF, $FF    ; DebugConsole
 	JMP theend

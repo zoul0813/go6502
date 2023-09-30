@@ -941,10 +941,15 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("I: INC ")
 		addr, _ := o.ZeroPage(io)
 		b, _ := io.Get(addr)
-		o.Log("%02x (ZP)", addr)
-
-		b++
-		io.Set(addr, b)
+		o.Log("%02x (ZP) %02x", addr, b)
+		v := b + 1
+		err := io.Set(addr, v)
+		fmt.Printf(" %02x %04x", v, addr)
+		t, _ := io.Get(addr)
+		fmt.Printf(" %02x", t)
+		if err != nil {
+			fmt.Printf(" %s", err)
+		}
 
 		o.SetStatus(Zero, b == 0)
 		o.SetStatus(Negative, IsNegative(b))
@@ -1345,7 +1350,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		if carry {
 			v++
 		}
-		io.Set(uint16(b), v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)
@@ -1433,7 +1438,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		if carry {
 			v |= 0b10000000 // bitset
 		}
-		io.Set(uint16(b), v)
+		io.Set(addr, v)
 
 		o.SetStatus(Negative, IsNegative(o.A))
 		o.SetStatus(Zero, o.A == 0)

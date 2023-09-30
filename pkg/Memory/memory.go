@@ -13,18 +13,20 @@ type Memory struct {
 }
 
 func New(size uint32, offset uint16, readOnly bool) *Memory {
-	fmt.Printf("Creating %v ($%04x) bytes at %v ($%04x) \n", size, size, offset, offset)
-	return &Memory{
-		Bytes:    make([]byte, size), // we add 1, cause 0x0000:0xFFFF is (0:65536)
+	fmt.Printf("Creating %v ($%04x) bytes at %v ($%04x) ", size, size, offset, offset)
+	o := &Memory{
+		Bytes:    make([]byte, size+1), // we add 1, cause 0x0000:0xFFFF is (0:65536)
 		Offset:   offset,
 		ReadOnly: readOnly,
 		Next:     0,
 	}
+	fmt.Printf(" -> %v (%04x) bytes\n", len(o.Bytes), len(o.Bytes))
+	return o
 }
 
 // IO.Memory Interface
 func (o *Memory) Size() uint16 {
-	return uint16(len(o.Bytes))
+	return uint16(len(o.Bytes) - 1)
 }
 func (o *Memory) Get(addr uint16) (byte, error) {
 	a := addr - o.Offset
@@ -44,9 +46,9 @@ func (o *Memory) Set(addr uint16, value byte) error {
 	}
 
 	a := addr - o.Offset
-	// fmt.Printf("SET: %04x: %02x\n", addr, value)
-	if int(a) > len(o.Bytes) {
-		return fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
+	// fmt.Printf("SET: %04x [%04x]: %02x (%v, %04x)\n", addr, a, value, len(o.Bytes), len(o.Bytes))
+	if int(a) >= len(o.Bytes) {
+		return fmt.Errorf("%04x is out of range of %04x, trying to set %02x", addr, len(o.Bytes), value)
 	}
 	o.Bytes[a] = value
 	return nil
@@ -90,7 +92,7 @@ func (o *Memory) Load(bytes []byte) (uint16, error) {
 	ro := o.ReadOnly
 	o.ReadOnly = false
 	for i, b := range bytes {
-		// fmt.Printf("\t%v: %04x: %02x\n", i, o.Offset+uint16(i), b)
+		// fmt.Printf("%v: %04x: %02x (%v, %04x)\n", i, o.Offset+uint16(i), b, len(o.Bytes), len(bytes))
 		err := o.Set((o.Offset + uint16(i)), b)
 		if err != nil {
 			fmt.Printf("Load Error: %v\n", err)

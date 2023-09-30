@@ -15,6 +15,16 @@ func main() {
 	var m uint16 = 0xEFFF
 	fmt.Printf("A: %008b\n", a)
 	fmt.Printf("M: %008b\n", m)
+
+	buffer = make([]byte, 0xffff)
+	var i int = 0
+	for x := 0; x < 0xffff; x++ {
+		i++
+		buffer[i] = byte(x)
+	}
+
+	fmt.Printf("i: %v, %04x\n", i, i)
+
 	// a = (a << 1) + 1
 	// fmt.Printf("+: %08b  %02x %0x\n", a, a, a)
 	// a = a << 1

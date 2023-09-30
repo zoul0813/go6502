@@ -59,14 +59,14 @@ SETSTOR:        ASL             ; Leaves $7B if setting STOR mode.
 SETMODE:        STA MODE        ; $00=XAM $7B=STOR $AE=BLOK XAM
 BLSKIP:         INY             ; Advance text index.
 NEXTITEM:       LDA IN,Y        ; Get character.
-                CMP #$8D        ; CR?
+                CMP #$8D        ; CR?   ;; $8D
                 BEQ GETLINE     ; Yes, done this line.
-                CMP #'.'+$80    ; "."?
+                CMP #'.'+$80    ; "."?  ;; $AE
                 BCC BLSKIP      ; Skip delimiter.
                 BEQ SETMODE     ; Yes. Set STOR mode.
-                CMP #':'+$80    ; ":"?
+                CMP #':'+$80    ; ":"?  ;; $BA
                 BEQ SETSTOR     ; Yes. Set STOR mode.
-                CMP #'R'+$80    ; "R"?
+                CMP #'R'+$80    ; "R"?  ;; $D2
                 BEQ RUN         ; Yes. Run user program.
                 STX L           ; $00-> L.
                 STX H           ; and H.
