@@ -5,6 +5,12 @@ import "fmt"
 func main() {
 	fmt.Printf("Testing...\n")
 
+	var buffer []byte
+	buffer = []byte{1}
+	b := buffer[0]
+	buffer = buffer[1:]
+	fmt.Printf("b: %v, buffer: %v\n", b, buffer)
+
 	var a uint16 = 0x4001
 	var m uint16 = 0xEFFF
 	fmt.Printf("A: %008b\n", a)

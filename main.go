@@ -191,6 +191,25 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
+func processTicks() {
+	cpuClock := time.NewTicker(clockSpeed)
+	defer cpuClock.Stop()
+
+	for {
+		// if doQuit {
+		// 	return
+		// }
+		<-cpuClock.C
+		halted, _ := cpu.Step(io)
+		if cpu.DebugMode {
+			cpu.Debug()
+		}
+		if halted {
+			fmt.Printf("Halted: %v", cpu)
+		}
+	}
+}
+
 func main() {
 	fmt.Printf("Go 6502... \n")
 
@@ -313,28 +332,9 @@ func main() {
 	ebiten.SetWindowTitle("TypeWriter (Ebitengine Demo)")
 	ebiten.SetTPS(frameRate)
 
-	doQuit := false
-	cpuClock := time.NewTicker(clockSpeed)
-	defer cpuClock.Stop()
-
-	go func() {
-		for {
-			if doQuit {
-				return
-			}
-			<-cpuClock.C
-			halted, _ := cpu.Step(io)
-			if cpu.DebugMode {
-				cpu.Debug()
-			}
-			if halted {
-				fmt.Printf("Halted: %v", cpu)
-			}
-		}
-	}()
+	go processTicks()
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
-	doQuit = true
 }

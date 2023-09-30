@@ -60,14 +60,14 @@ func (k *Keyboard) Get(addr uint16) (byte, error) {
 	}
 
 	fmt.Printf("Buffer: %v", k.buffer)
-	if len(k.buffer) > 1 {
+	if len(k.buffer) > 0 {
 		key := k.buffer[0]
 		k.buffer = k.buffer[1:]
 		fmt.Printf("Keyboard: %v\n", k.buffer)
 		// set bit 7 to 1
 		return 0x80 | key, nil
 	}
-	return 0x80, nil
+	return 0x00, nil
 
 	// return byte(key), fmt.Errorf("Keyboard: read-only, invalid memory access")
 }
