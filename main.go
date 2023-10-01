@@ -64,6 +64,7 @@ type Game struct {
 	showRegisters bool
 	showZeroPage  bool
 	showWozIn     bool
+	showStack     bool
 	singleStep    bool
 	// shader        *ebiten.Shader // Shaders appear to be voodoo magic?
 }
@@ -80,6 +81,8 @@ func (g *Game) Update() error {
 			g.showZeroPage = !g.showZeroPage
 		case ebiten.KeyF3:
 			g.showWozIn = !g.showWozIn
+		case ebiten.KeyF4:
+			g.showStack = !g.showStack
 		case ebiten.KeyF5:
 			return fmt.Errorf("quit")
 		case ebiten.KeyF7:
@@ -97,6 +100,8 @@ func (g *Game) Update() error {
 			if halted {
 				fmt.Printf("Halted: %v", cpu)
 			}
+		case ebiten.KeyHome:
+			// reset
 		case ebiten.KeyEscape:
 			keyboard.AppendKey(0x1B) // ESC 27
 		case ebiten.KeyEnter:
@@ -127,7 +132,11 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Clear()
 
-	t := display.All()
+	blink := false
+	if g.counter%frameRate < (frameRate / 2) {
+		blink = true
+	}
+	t := display.All(blink)
 
 	bound := text.BoundString(normalFont, "W")
 
@@ -147,6 +156,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.showZeroPage {
 		DebugMemory(0x00, 0xFF, screen, normalFont, bound)
+	}
+
+	if g.showStack {
+		DebugMemory(0x0100, 0xFF, screen, normalFont, bound)
 	}
 
 	if g.showWozIn {

@@ -153,19 +153,19 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		var lo uint8 = uint8(pc & 0b0000000011111111)
 		var hi uint8 = uint8(pc >> 8)
 
-		o.SP--
 		io.Set(STACK_HEAD+uint16(o.SP), hi)
 		o.SP--
 		io.Set(STACK_HEAD+uint16(o.SP), lo)
+		o.SP--
 
 		o.PC = addr
 	case RTS:
 		o.Log("I: RTS ")
 		o.Log("(Implied)")
+		o.SP++
 		lo, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
 		hi, _ := io.Get(STACK_HEAD + uint16(o.SP))
-		o.SP++
 		var addr uint16 = (uint16(hi) << 8) | uint16(lo)
 		o.PC = addr + 1
 	case RTI:
@@ -1663,14 +1663,14 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case TXS:
 		// transfer x to stack
 		o.Log("I: TXS ")
-		o.SP--
 		io.Set(STACK_HEAD+uint16(o.SP), o.X)
+		o.SP--
 	case TSX:
 		// transfer stack to x
 		o.Log("I: TSX ")
 		x, _ := io.Get(STACK_HEAD + uint16(o.SP))
-		o.X = x
 		o.SP++
+		o.X = x
 	case PHA:
 		// push accumulater
 		o.Log("I: PHA ")
@@ -1679,8 +1679,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case PLA:
 		// pull accumulater
 		o.Log("I: PLA ")
-		o.SP++
 		a, _ := io.Get(STACK_HEAD + uint16(o.SP))
+		o.SP++
 		o.A = a
 	case PHP:
 		// push status to stack
@@ -1690,8 +1690,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case PLP:
 		// pull status from stack
 		o.Log("I: PLP ")
-		o.SP++
 		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
+		o.SP++
 		o.Status = status
 
 	case DEBUG:
