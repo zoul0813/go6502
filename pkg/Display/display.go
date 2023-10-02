@@ -47,15 +47,6 @@ func (d *Display) All(blink bool) string {
 		t += "\n"
 	}
 
-	// for i := 0; i < d.size; i++ {
-	// 	b := d.buffer[i]
-	// 	// convert CR to LF
-	// 	if b == 13 {
-	// 		b = 10
-	// 	}
-	// 	t += string(b)
-	// }
-
 	return t
 }
 
@@ -107,7 +98,6 @@ func (d *Display) Set(addr uint16, value byte) error {
 			d.row--
 			d.buffer = d.buffer[d.cols:d.size]
 			for i := 0; i < d.cols; i++ {
-				// d.buffer[d.row*d.cols+i] = 0x20 // Space
 				d.buffer = append(d.buffer, 0x20)
 			}
 			fmt.Printf("display: col: %v, row: %v\n", d.col, d.row)
@@ -115,11 +105,6 @@ func (d *Display) Set(addr uint16, value byte) error {
 		fmt.Printf("display: col: %v, row: %v\n", d.col, d.row)
 	}
 
-	// d.buffer[d.index] = c
-	// d.index++
-	// if d.index >= d.size {
-	// 	d.index = 0
-	// }
 	return nil // never give up, never surrender
 }
 
