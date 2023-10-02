@@ -84,6 +84,8 @@ func (g *Game) Update() error {
 		case ebiten.KeyF4:
 			g.showStack = !g.showStack
 		case ebiten.KeyF5:
+			s := io.DumpString(0x0000, 0xFFFF)
+			os.WriteFile("dump.txt", []byte(s), 0644)
 			return fmt.Errorf("quit")
 		case ebiten.KeyF7:
 			cpu.SingleStep = !cpu.SingleStep
