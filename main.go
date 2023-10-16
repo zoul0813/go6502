@@ -332,7 +332,7 @@ func main() {
 	}
 
 	ebiten.SetWindowSize(screenWidth+padding, screenHeight+padding)
-	ebiten.SetWindowTitle("TypeWriter (Ebitengine Demo)")
+	ebiten.SetWindowTitle("Gosho-1 (Apple 1 Emulator in Go)")
 	ebiten.SetTPS(frameRate)
 
 	if !singleStep {

@@ -1668,8 +1668,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case TSX:
 		// transfer stack to x
 		o.Log("I: TSX ")
-		x, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
+		x, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.X = x
 	case PHA:
 		// push accumulater
@@ -1679,8 +1679,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case PLA:
 		// pull accumulater
 		o.Log("I: PLA ")
-		a, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
+		a, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.A = a
 	case PHP:
 		// push status to stack
@@ -1690,8 +1690,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case PLP:
 		// pull status from stack
 		o.Log("I: PLP ")
-		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
+		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.Status = status
 
 	case DEBUG:
@@ -1912,6 +1912,7 @@ func (o *CPU) SBC(operand uint8) uint8 {
 }
 
 func (o *CPU) Branch(rel uint8, cond bool) {
+	o.PC++ // always increment the PC by 1 to account for the offset?
 	if cond {
 		j := ^rel + 1
 		o.Log(" Taken, %02x %08b | %02x %08b %v", rel, rel, j, j, j)
@@ -1921,5 +1922,4 @@ func (o *CPU) Branch(rel uint8, cond bool) {
 			o.PC += uint16(0b01111111 & rel)
 		}
 	}
-	o.PC++
 }
