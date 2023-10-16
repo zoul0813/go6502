@@ -3,10 +3,6 @@
 .word start     ; 0xfffc
 .word start     ; 0xfffe
 
-.segment "ZEROPAGE"
-zeropage:
-.byte $a1, $a2, $a3, $a4, $a5
-
 .segment "CODE"
 
 start:
@@ -261,7 +257,7 @@ test01:
 
 ; expected result: $71 = 0xFF
 test02:
-	.byte $FF, $02 ; expected result: $71 = 0xFF
+	; .byte $FF, $02 ; expected result: $71 = 0xFF
 	LDA #$FF
 	LDX #$00
 
@@ -435,6 +431,7 @@ final:
 
 ; expected result: $40 = 0x33
 test05:
+	; .byte $FF, $05
 	LDA #$35
 
 	TAX
@@ -834,7 +831,7 @@ t10bvc1:
 
 ; expected result: $30 = 0x29
 test11:
-	; .byte $FF, $F0
+	; .byte $FF, $0B
 ; RESET TO CARRY = 0 & ZERO = 0
 	ADC #$01 ;
 
