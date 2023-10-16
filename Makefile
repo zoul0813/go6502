@@ -11,4 +11,4 @@ run: build
 	$(BIN)
 
 log: build
-	$(BIN) > run.log
+	$(BIN) --debug > run.log
