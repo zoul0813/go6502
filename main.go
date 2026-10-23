@@ -196,18 +196,23 @@ func processTicks() {
 
 	for {
 		<-cpuClock.C
-		if cpu.SingleStep {
-			continue
-		}
-		halted, _ := cpu.Step(io)
-		if cpu.DebugMode {
-			cpu.Debug()
-		}
-		if halted {
-			cpu.SingleStep = true
-			fmt.Printf("Halted: %v", cpu)
+		if err := automaticStep(); err != nil {
+			log.Print(err)
 		}
 	}
+}
+
+// automaticStep is also used after resuming from single-step mode.
+func automaticStep() error {
+	if cpu.SingleStep {
+		return nil
+	}
+	halted, err := cpu.Step(io)
+	cpu.Debug()
+	if halted || err != nil {
+		cpu.SingleStep = true
+	}
+	return err
 }
 
 func main() {
@@ -335,9 +340,7 @@ func main() {
 	ebiten.SetWindowTitle("Gosho-1 (Apple 1 Emulator in Go)")
 	ebiten.SetTPS(frameRate)
 
-	if !singleStep {
-		go processTicks()
-	}
+	go processTicks()
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
