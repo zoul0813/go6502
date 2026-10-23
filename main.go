@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"image"
@@ -30,7 +31,7 @@ const (
 	SCREEN_HEAD  uint16 = 0x400
 	scale               = 4
 	cols                = 40
-	rows                = 25
+	rows                = 24
 	fontSize            = 8
 	padding             = 32
 	frameRate           = 60
@@ -52,8 +53,11 @@ var (
 	keyboard    *Keyboard.Keyboard
 	display     *Display.Display
 	rom         *Memory.Memory
-	screenColor = color.RGBA{4, 101, 13, 20}
+	screenColor = color.RGBA{4, 101, 13, 255}
 )
+
+//go:embed assets/fonts/C64_Pro_Mono-STYLE.ttf
+var fontFile []byte
 
 type Game struct {
 	// runes   []rune
@@ -253,72 +257,9 @@ func main() {
 	fmt.Printf("Clock Mult : %v (%v)\n", clockMultiplier, d)
 	fmt.Printf("Clock Speed: %v\n", clockSpeed)
 
-	// RAM
-	ram = Memory.New(0x8000, 0x0000, false)
-	// ram = Memory.New(0xFFFF, 0x0000, false)
-
-	// Keyboard
-	keyboard = Keyboard.New(0xD010)
-
-	// Display
-	display = Display.New(0xD012, cols, rows)
-
-	// ROM
-	rom = Memory.New(0x1000, 0xF000, true)
-	f, err := os.ReadFile("rom/rom.bin")
-	if err != nil {
-		fmt.Printf("Can't read file rom/rom.bin\n\n")
-		panic(err)
+	if err := initializeMachine(singleStep, debugMode); err != nil {
+		log.Fatal(err)
 	}
-
-	devices := []*IO.Device{
-		IO.NewDevice("RAM", ram, 0x0000),
-		IO.NewDevice("Keyboard", keyboard, 0xD010),
-		IO.NewDevice("Display", display, 0xD012),
-		IO.NewDevice("ROM", rom, 0xF000),
-	}
-	io = IO.New(devices)
-
-	fmt.Printf("Loading rom %04x (%v) bytes\n", len(f), len(f))
-	io.LoadRom(f, 0xF000)
-	io.Set(0x0000, 0x55)
-	io.Set(0x00FF, 0x33)
-	io.Dump(0xF000, 0xFF)
-
-	// fmt.Printf("Loading ram %04x (%v) bytes\n", len(f), len(f))
-	// io.LoadRom(f, 0x0000)
-
-	cpu = CPU.New(
-		0xfffc,     // PC
-		0xFF,       // SP
-		0x00,       // A
-		0xf0,       // X
-		0xFE,       // Y
-		0b00110000, // Status
-		singleStep, // Single Step
-		debugMode,  // DebugMode
-	)
-
-	word, _ := io.GetWord(cpu.PC)
-	cpu.PC = word
-
-	// fmt.Printf("ZeroPage: %04x bytes from %04x\n", 0xff, 0x0000)
-	// io.Dump(0x0000, 0xff) // Zero Page
-
-	fmt.Printf("\n\n")
-	// Reset Vectors
-	fmt.Printf("Reset: %04x bytes from %04x\n", 0x0f, 0xfff0)
-	io.Dump(0xfff0, 0x0f)
-
-	// ROM Head
-	fmt.Printf("ROM Head: %04x bytes from %04x\n", 0xff, 0xF000)
-	io.Dump(0xF000, 0xFF)
-
-	// Start of Program?
-	fmt.Printf("Program: %04x bytes from %04x\n", 0xff, cpu.PC)
-	io.Dump(cpu.PC, 0xff)
-
-	cpu.Debug()
 
 	g := &Game{
 		// text:    "GO6502\nv0.0.0\n\n% ",
@@ -326,11 +267,6 @@ func main() {
 		showRegisters: false,
 		showZeroPage:  false,
 		showWozIn:     false,
-	}
-
-	fontFile, err := os.ReadFile("assets/fonts/C64_Pro_Mono-STYLE.ttf")
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	fontFace, err := sfnt.Parse(fontFile)
