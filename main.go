@@ -65,7 +65,7 @@ type Game struct {
 	showZeroPage  bool
 	showWozIn     bool
 	showStack     bool
-	singleStep    bool
+	elapsed       time.Duration
 	// shader        *ebiten.Shader // Shaders appear to be voodoo magic?
 }
 
@@ -89,13 +89,14 @@ func (g *Game) Update() error {
 			return fmt.Errorf("quit")
 		case ebiten.KeyF7:
 			cpu.SingleStep = !cpu.SingleStep
-			g.singleStep = cpu.SingleStep
-			fmt.Printf("SingleStep: CPU: %v, Game: %v\n", cpu.SingleStep, g.singleStep)
 		case ebiten.KeyF8:
 			if !cpu.SingleStep {
 				continue
 			}
-			halted, _ := cpu.Step(io)
+			halted, err := cpu.Step(io)
+			if err != nil {
+				return err
+			}
 			if cpu.DebugMode {
 				cpu.Debug()
 			}
@@ -128,7 +129,7 @@ func (g *Game) Update() error {
 	}
 
 	g.counter++
-	return nil
+	return g.advance(time.Second / frameRate)
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -190,16 +191,29 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-func processTicks() {
-	cpuClock := time.NewTicker(clockSpeed)
-	defer cpuClock.Stop()
-
-	for {
-		<-cpuClock.C
+// Ebitengine calls Update and Draw serially. Keep the CPU, keyboard, display,
+// and debugger on that same owner instead of sharing mutable state with a ticker.
+// This is an instruction-rate budget, not cycle-accurate 6502 timing.
+func (g *Game) advance(elapsed time.Duration) error {
+	if clockSpeed <= 0 {
+		return fmt.Errorf("clock interval must be positive")
+	}
+	if cpu.SingleStep {
+		g.elapsed = 0
+		return nil
+	}
+	g.elapsed += elapsed
+	for g.elapsed >= clockSpeed {
+		g.elapsed -= clockSpeed
 		if err := automaticStep(); err != nil {
-			log.Print(err)
+			return err
+		}
+		if cpu.SingleStep {
+			g.elapsed = 0
+			break
 		}
 	}
+	return nil
 }
 
 // automaticStep is also used after resuming from single-step mode.
@@ -312,7 +326,6 @@ func main() {
 		showRegisters: false,
 		showZeroPage:  false,
 		showWozIn:     false,
-		singleStep:    singleStep,
 	}
 
 	fontFile, err := os.ReadFile("assets/fonts/C64_Pro_Mono-STYLE.ttf")
@@ -339,8 +352,6 @@ func main() {
 	ebiten.SetWindowSize(screenWidth+padding, screenHeight+padding)
 	ebiten.SetWindowTitle("Gosho-1 (Apple 1 Emulator in Go)")
 	ebiten.SetTPS(frameRate)
-
-	go processTicks()
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)

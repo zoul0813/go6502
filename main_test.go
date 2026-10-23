@@ -5,6 +5,7 @@ import (
 	"github.com/zoul0813/go6502/pkg/IO"
 	"github.com/zoul0813/go6502/pkg/Memory"
 	"testing"
+	"time"
 )
 
 func TestResumeFromSingleStep(t *testing.T) {
@@ -26,5 +27,39 @@ func TestResumeFromSingleStep(t *testing.T) {
 	}
 	if cpu.PC != 0x201 {
 		t.Fatalf("resumed PC=%04x", cpu.PC)
+	}
+}
+
+func TestFrameBudgetAndResume(t *testing.T) {
+	previousCPU, previousIO, previousClock := cpu, io, clockSpeed
+	t.Cleanup(func() { cpu, io, clockSpeed = previousCPU, previousIO, previousClock })
+	memory := Memory.New(0xffff, 0, false)
+	for i := uint16(0); i < 16; i++ {
+		memory.Set(0x200+i, byte(CPU.NOP))
+	}
+	io = IO.New([]*IO.Device{IO.NewDevice("RAM", memory, 0)})
+	cpu = CPU.New(0x200, 0xff, 0, 0, 0, 0, true, false)
+	clockSpeed = time.Millisecond
+	g := &Game{}
+	if err := g.advance(time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if cpu.PC != 0x200 {
+		t.Fatal("paused CPU executed")
+	}
+	cpu.SingleStep = false
+	for i := 0; i < 3; i++ {
+		if err := g.advance(time.Millisecond / 2); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if cpu.PC != 0x201 {
+		t.Fatalf("PC=%04x, want 0201", cpu.PC)
+	}
+	if err := g.advance(time.Millisecond / 2); err != nil {
+		t.Fatal(err)
+	}
+	if cpu.PC != 0x202 {
+		t.Fatalf("PC=%04x, want 0202", cpu.PC)
 	}
 }
