@@ -8,8 +8,8 @@ import (
 	"image/color"
 	"log"
 	"os"
-	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -74,10 +74,16 @@ type Game struct {
 }
 
 func (g *Game) Update() error {
-	// Keyboard input
 	g.keys = inpututil.AppendJustPressedKeys(g.keys[:0])
+	if err := g.handleInput(g.keys, ebiten.AppendInputChars(nil)); err != nil {
+		return err
+	}
+	g.counter++
+	return g.advance(time.Second / frameRate)
+}
 
-	for _, key := range g.keys {
+func (g *Game) handleInput(keys []ebiten.Key, chars []rune) error {
+	for _, key := range keys {
 		switch key {
 		case ebiten.KeyF1:
 			g.showRegisters = !g.showRegisters
@@ -88,52 +94,41 @@ func (g *Game) Update() error {
 		case ebiten.KeyF4:
 			g.showStack = !g.showStack
 		case ebiten.KeyF5:
-			s := io.DumpString(0x0000, 0xFFFF)
-			os.WriteFile("dump.txt", []byte(s), 0644)
-			return fmt.Errorf("quit")
+			if err := os.WriteFile("dump.txt", []byte(io.DumpString(0, 0xffff)), 0644); err != nil {
+				return err
+			}
+			return ebiten.Termination
 		case ebiten.KeyF7:
 			cpu.SingleStep = !cpu.SingleStep
 		case ebiten.KeyF8:
-			if !cpu.SingleStep {
-				continue
-			}
-			halted, err := cpu.Step(io)
-			if err != nil {
-				return err
-			}
-			if cpu.DebugMode {
+			if cpu.SingleStep {
+				if _, err := cpu.Step(io); err != nil {
+					return err
+				}
 				cpu.Debug()
 			}
-			if halted {
-				fmt.Printf("Halted: %v", cpu)
-			}
 		case ebiten.KeyHome:
-			// reset
-		case ebiten.KeyEscape:
-			keyboard.AppendKey(0x1B) // ESC 27
-		case ebiten.KeyEnter:
-			keyboard.AppendKey(0x0D) // LF 10
-		default:
-			var buffer []rune
-			buffer = ebiten.AppendInputChars(buffer[:0])
-			for _, r := range buffer {
-				b := strings.ToUpper(string(byte(r)))[0]
-				fmt.Printf("Key: %02x %02x '%v' '%v'\n", r, b, b, string(b))
-				keyboard.AppendKey(b)
+			if err := resetCPU(); err != nil {
+				return err
 			}
-			// fmt.Printf("KeyCode: %v, %v\n", key, buffer)
-			// name := ebiten.KeyName(key)
-			// fmt.Printf("KeyName: %v\n", name)
-			// if len(name) > 0 {
-			// 	b := name[0]
-			// 	fmt.Printf("Key: %02x %08b '%v'\n", b, b, string(b))
-			// 	keyboard.AppendKey(b)
-			// }
+			g.elapsed = 0
+		case ebiten.KeyEscape:
+			keyboard.AppendKey(0x1b)
+		case ebiten.KeyEnter:
+			keyboard.AppendKey(0x0d)
+		case ebiten.KeyBackspace, ebiten.KeyDelete:
+			keyboard.AppendKey('_') // Original monitor's backspace character.
 		}
 	}
-
-	g.counter++
-	return g.advance(time.Second / frameRate)
+	// Ebitengine's text stream already includes repeats and modifier processing.
+	// Consume it once per update, including frames without a newly pressed key.
+	for _, r := range chars {
+		r = unicode.ToUpper(r)
+		if r >= 0x20 && r <= 0x5f {
+			keyboard.AppendKey(byte(r))
+		}
+	}
+	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
