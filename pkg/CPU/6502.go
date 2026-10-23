@@ -1853,28 +1853,48 @@ func (o *CPU) AbsoluteY(io IO.Memory) (uint16, error) {
 	return o.Address, err
 }
 
+// readPageWord models the NMOS 6502's page-local pointer increment:
+// zero-page pointers wrap at $FF, and indirect JMP wraps within its page.
+func readPageWord(io IO.Memory, addr uint16) (uint16, error) {
+	lo, err := io.Get(addr)
+	if err != nil {
+		return 0, err
+	}
+	hi, err := io.Get((addr & 0xff00) | uint16(byte(addr+1)))
+	if err != nil {
+		return 0, err
+	}
+	return uint16(lo) | uint16(hi)<<8, nil
+}
+
 func (o *CPU) Indirect(io IO.Memory) (uint16, error) {
-	from, _ := io.GetWord(o.PC)
+	from, err := io.GetWord(o.PC)
+	if err != nil {
+		return 0, err
+	}
 	o.PC += 2
-	addr, err := io.GetWord(from)
-	o.Address = addr
+	o.Address, err = readPageWord(io, from)
 	return o.Address, err
 }
 
 func (o *CPU) IndirectX(io IO.Memory) (uint16, error) {
-	zp, _ := io.Get(o.PC)
-	o.PC += 1
-	addr, err := io.GetWord(uint16(zp + o.X))
-	o.Address = addr
+	zp, err := io.Get(o.PC)
+	if err != nil {
+		return 0, err
+	}
+	o.PC++
+	o.Address, err = readPageWord(io, uint16(zp+o.X))
 	return o.Address, err
 }
 
 func (o *CPU) IndirectY(io IO.Memory) (uint16, error) {
-	zp, _ := io.Get(o.PC)
-	o.PC += 1
-	addr1, err := io.GetWord(uint16(zp))
-	addr := addr1 + uint16(o.Y)
-	o.Address = addr
+	zp, err := io.Get(o.PC)
+	if err != nil {
+		return 0, err
+	}
+	o.PC++
+	addr, err := readPageWord(io, uint16(zp))
+	o.Address = addr + uint16(o.Y)
 	return o.Address, err
 }
 
