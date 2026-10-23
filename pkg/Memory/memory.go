@@ -1,9 +1,6 @@
 package Memory
 
-import (
-	"fmt"
-	"log"
-)
+import "fmt"
 
 type Memory struct {
 	Bytes    []byte
@@ -12,132 +9,95 @@ type Memory struct {
 	Next     uint16
 }
 
+// New allocates addresses offset through offset+size, inclusive.
+// Size is the last relative address, as required by IO.Memory.
 func New(size uint32, offset uint16, readOnly bool) *Memory {
-	fmt.Printf("Creating %v ($%04x) bytes at %v ($%04x) ", size, size, offset, offset)
-	o := &Memory{
-		Bytes:    make([]byte, size+1), // we add 1, cause 0x0000:0xFFFF is (0:65536)
-		Offset:   offset,
-		ReadOnly: readOnly,
-		Next:     0,
-	}
-	fmt.Printf(" -> %v (%04x) bytes\n", len(o.Bytes), len(o.Bytes))
-	return o
+	return &Memory{Bytes: make([]byte, int(size)+1), Offset: offset, ReadOnly: readOnly, Next: offset}
 }
 
-// IO.Memory Interface
-func (o *Memory) Size() uint16 {
-	return uint16(len(o.Bytes) - 1)
+func (o *Memory) Size() uint16 { return uint16(len(o.Bytes) - 1) }
+
+func (o *Memory) index(addr uint16, width int) (int, error) {
+	i := int(addr) - int(o.Offset)
+	if i < 0 || i+width > len(o.Bytes) || int(addr)+width > 65536 {
+		return 0, fmt.Errorf("%04x: %d-byte access outside memory at %04x (%d bytes)", addr, width, o.Offset, len(o.Bytes))
+	}
+	return i, nil
 }
 func (o *Memory) Get(addr uint16) (byte, error) {
-	a := addr - o.Offset
-	if int(a) <= len(o.Bytes) {
-		return o.Bytes[a], nil
+	i, err := o.index(addr, 1)
+	if err != nil {
+		return 0, err
 	}
-	return 0x00, fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
+	return o.Bytes[i], nil
 }
-
 func (o *Memory) Set(addr uint16, value byte) error {
-	// o.mutex.Lock()
-	// defer o.mutex.Unlock()
-
 	if o.ReadOnly {
-		fmt.Printf("attempt to write to ROM at %04x\n", addr)
 		return fmt.Errorf("attempt to write to ROM at %04x", addr)
 	}
-
-	a := addr - o.Offset
-	// fmt.Printf("SET: %04x [%04x]: %02x (%v, %04x)\n", addr, a, value, len(o.Bytes), len(o.Bytes))
-	if int(a) >= len(o.Bytes) {
-		return fmt.Errorf("%04x is out of range of %04x, trying to set %02x", addr, len(o.Bytes), value)
+	i, err := o.index(addr, 1)
+	if err != nil {
+		return err
 	}
-	o.Bytes[a] = value
+	o.Bytes[i] = value
 	return nil
 }
-
 func (o *Memory) GetWord(addr uint16) (uint16, error) {
-	a := addr - o.Offset
-	if int(a+1) <= len(o.Bytes) {
-		lo := o.Bytes[a]
-		hi := o.Bytes[a+1]
-		var word uint16 = (uint16(hi) << 8) + uint16(lo)
-		return word, nil
+	i, err := o.index(addr, 2)
+	if err != nil {
+		return 0, err
 	}
-	return 0x00, fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
+	return uint16(o.Bytes[i]) | uint16(o.Bytes[i+1])<<8, nil
 }
-
 func (o *Memory) SetWord(addr uint16, value uint16) error {
-	// o.mutex.Lock()
-	// defer o.mutex.Unlock()
-
 	if o.ReadOnly {
 		return fmt.Errorf("attempt to write to ROM at %04x", addr)
 	}
-
-	a := addr - o.Offset
-	if int(a)+1 > len(o.Bytes) {
-		return fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
+	i, err := o.index(addr, 2)
+	if err != nil {
+		return err
 	}
-
-	hi := byte(value >> 8)
-	lo := uint8(value)
-
-	// fmt.Printf("SET: %04x: %04x (%04x) -> %02x = %02x", addr, value, o.Offset, a, lo)
-	o.Bytes[a] = lo
-	// fmt.Printf(" | %02x = %02x\n", a+1, hi)
-	o.Bytes[a+1] = hi
+	o.Bytes[i] = byte(value)
+	o.Bytes[i+1] = byte(value >> 8)
 	return nil
 }
 
-func (o *Memory) Load(bytes []byte) (uint16, error) {
-	ro := o.ReadOnly
-	o.ReadOnly = false
-	for i, b := range bytes {
-		// fmt.Printf("%v: %04x: %02x (%v, %04x)\n", i, o.Offset+uint16(i), b, len(o.Bytes), len(bytes))
-		err := o.Set((o.Offset + uint16(i)), b)
-		if err != nil {
-			fmt.Printf("Load Error: %v\n", err)
-			log.Fatal(err)
-		}
+// Load initializes memory (including ROM) without changing its write protection.
+// Validate first so an oversized image cannot leave a partially loaded device.
+func (o *Memory) Load(data []byte) (uint16, error) {
+	if _, err := o.index(o.Offset, len(data)); err != nil {
+		return 0, err
 	}
-	o.ReadOnly = ro
-	fmt.Printf("Loaded %v bytes into %v\n", len(bytes), "memory")
-	return uint16(len(bytes)), nil
+	copy(o.Bytes, data)
+	return uint16(len(data)), nil
 }
-
-// Memory.Memory public
-
 func (o *Memory) Goto(addr uint16) error {
-	a := addr - o.Offset
-	if int(a) > len(o.Bytes) {
-		return fmt.Errorf("%04x is out of range of %04x", addr, len(o.Bytes))
+	if _, err := o.index(addr, 1); err != nil {
+		return err
 	}
 	o.Next = addr
-
 	return nil
 }
-
 func (o *Memory) Write(value byte) error {
 	if err := o.Set(o.Next, value); err != nil {
 		return err
 	}
 	return o.next(1)
 }
-
 func (o *Memory) WriteWord(value uint16) error {
 	if err := o.SetWord(o.Next, value); err != nil {
 		return err
 	}
 	return o.next(2)
 }
-
-// Memory.Memory private
-
 func (o *Memory) next(offset byte) error {
 	next := int(o.Next) + int(offset)
-	if next < len(o.Bytes) {
-		o.Next = uint16(next)
-	} else {
-		return fmt.Errorf("%04x is out of range of %04x", next, len(o.Bytes))
+	if next > 65535 {
+		return fmt.Errorf("memory cursor exceeds address space")
 	}
+	if _, err := o.index(uint16(next), 1); err != nil {
+		return err
+	}
+	o.Next = uint16(next)
 	return nil
 }

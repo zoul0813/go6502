@@ -119,16 +119,17 @@ func (io *IO) Get(addr uint16) (byte, error) {
 	return chip.Get(addr)
 }
 
+// A bus word may straddle devices or wrap from $FFFF to $0000.
 func (io *IO) GetWord(addr uint16) (uint16, error) {
-	var err error
-	device, err := io.getDevice(addr)
+	lo, err := io.Get(addr)
 	if err != nil {
-		return 0xEAEA, err
+		return 0, err
 	}
-	chip := device.Chip
-	io.mutex.Lock()
-	defer io.mutex.Unlock()
-	return chip.GetWord(addr)
+	hi, err := io.Get(addr + 1)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(lo) | uint16(hi)<<8, nil
 }
 
 func (io *IO) Load(bytes []byte) (uint16, error) {
