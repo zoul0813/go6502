@@ -1663,14 +1663,13 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case TXS:
 		// transfer x to stack
 		o.Log("I: TXS ")
-		io.Set(STACK_HEAD+uint16(o.SP), o.X)
-		o.SP--
+		o.SP = o.X
 	case TSX:
 		// transfer stack to x
 		o.Log("I: TSX ")
-		o.SP++
-		x, _ := io.Get(STACK_HEAD + uint16(o.SP))
-		o.X = x
+		o.X = o.SP
+		o.SetStatus(Zero, o.X == 0)
+		o.SetStatus(Negative, IsNegative(o.X))
 	case PHA:
 		// push accumulater
 		o.Log("I: PHA ")
