@@ -1,3 +1,6 @@
+//go:build ignore
+
+// Standalone scratch program; run explicitly with go run tests/branch.go.
 package main
 
 import "fmt"

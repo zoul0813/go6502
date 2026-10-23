@@ -12,3 +12,8 @@ run: build
 
 log: build
 	$(BIN) --debug > run.log
+
+.PHONY: build run log test
+test:
+	$(CC) test ./...
+	$(CC) vet ./...
