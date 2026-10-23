@@ -63,3 +63,23 @@ func TestFrameBudgetAndResume(t *testing.T) {
 		t.Fatalf("PC=%04x, want 0202", cpu.PC)
 	}
 }
+
+func TestClockInterval(t *testing.T) {
+	for _, tt := range []struct {
+		rate int
+		hz   bool
+		want time.Duration
+	}{
+		{1000, false, time.Microsecond}, {1, false, time.Millisecond}, {1, true, time.Second}, {1000, true, time.Millisecond},
+	} {
+		got, err := clockInterval(tt.rate, tt.hz)
+		if err != nil || got != tt.want {
+			t.Fatalf("rate=%d hz=%v got=%v err=%v", tt.rate, tt.hz, got, err)
+		}
+	}
+	for _, rate := range []int{-1, 0, 1_000_001} {
+		if _, err := clockInterval(rate, false); err == nil {
+			t.Fatalf("invalid rate %d accepted", rate)
+		}
+	}
+}

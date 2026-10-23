@@ -228,6 +228,21 @@ func automaticStep() error {
 	return err
 }
 
+func clockInterval(rate int, hz bool) (time.Duration, error) {
+	if rate <= 0 {
+		return 0, fmt.Errorf("clock rate must be positive")
+	}
+	unit := time.Millisecond // One second divided by a rate in kHz.
+	if hz {
+		unit = time.Second
+	}
+	interval := unit / time.Duration(rate)
+	if interval == 0 {
+		return 0, fmt.Errorf("clock rate exceeds nanosecond resolution")
+	}
+	return interval, nil
+}
+
 func main() {
 	fmt.Printf("Go 6502... \n")
 
@@ -242,15 +257,11 @@ func main() {
 	flag.BoolVar(&hz, "hz", false, "Set Clock to Hz")
 	flag.Parse()
 
-	// calculate the clock speed using kHz
-	khz := time.Microsecond * 1_000
-	if hz {
-		khz = time.Microsecond * 1_000_000
+	var err error
+	clockSpeed, err = clockInterval(clockMultiplier, hz)
+	if err != nil {
+		log.Fatal(err)
 	}
-	d := khz / time.Duration(clockMultiplier)
-	clockSpeed = time.Nanosecond * d
-	fmt.Printf("Clock Mult : %v (%v)\n", clockMultiplier, d)
-	fmt.Printf("Clock Speed: %v\n", clockSpeed)
 
 	if err := initializeMachine(singleStep, debugMode); err != nil {
 		log.Fatal(err)
