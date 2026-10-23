@@ -73,39 +73,31 @@ func (d *Display) Set(addr uint16, value byte) error {
 		return nil
 	}
 
-	// strip bit 7
-	c := value & 0b01111111 // $7F
-
-	fmt.Printf("display: set: $%04x $%02x %v '%v' @ (%v, %v)\n", addr, value, c, string(c), d.col, d.row)
-	d.buffer[d.row*d.cols+d.col] = c
-	d.col++
-	fmt.Printf("display: col: %v\n", d.col)
-	if d.col >= d.cols {
-		d.row++
-		d.col = 0
-		fmt.Printf("display: row: %v\n", d.row)
-		if d.row >= d.rows {
-			d.row--
-			d.buffer = d.buffer[d.cols:]
-			fmt.Printf("display: col: %v, row: %v\n", d.col, d.row)
-		}
-	}
-
+	// Apple 1 output is seven-bit ASCII; CR advances without printing.
+	c := value & 0x7f
 	if c == 13 {
-		d.row++
-		d.col = 0
-		if d.row >= d.rows {
-			d.row--
-			d.buffer = d.buffer[d.cols:d.size]
-			for i := 0; i < d.cols; i++ {
-				d.buffer = append(d.buffer, 0x20)
-			}
-			fmt.Printf("display: col: %v, row: %v\n", d.col, d.row)
+		d.newline()
+	} else if c >= 0x20 && c <= 0x5f {
+		d.buffer[d.row*d.cols+d.col] = c
+		d.col++
+		if d.col == d.cols {
+			d.newline()
 		}
-		fmt.Printf("display: col: %v, row: %v\n", d.col, d.row)
 	}
+	return nil
+}
 
-	return nil // never give up, never surrender
+func (d *Display) newline() {
+	d.col = 0
+	d.row++
+	if d.row < d.rows {
+		return
+	}
+	d.row = d.rows - 1
+	copy(d.buffer, d.buffer[d.cols:])
+	for i := d.size - d.cols; i < d.size; i++ {
+		d.buffer[i] = 0x20
+	}
 }
 
 func (d *Display) SetWord(addr uint16, value uint16) error {
