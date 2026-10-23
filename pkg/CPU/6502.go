@@ -1889,32 +1889,19 @@ func (o *CPU) IndirectY(io IO.Memory) (uint16, error) {
  */
 
 func (o *CPU) ADC(operand uint8) uint8 {
-	overflow := true
-	if ((o.A ^ operand) & 0x80) > 0 {
-		overflow = false
-	}
-
-	var carry uint8 = 0
+	a := o.A
+	carry := uint16(0)
 	if BitTest(Carry, o.Status) {
 		carry = 1
 	}
-
-	sum := int16(o.A) + int16(operand) + int16(carry)
-	o.Log("\n  ADC: %02x + %02x + %02x = %02x (%v)\n", o.A, operand, carry, sum, sum)
-
-	a := uint8(sum & 0x00ff)
-
-	o.SetStatus(Negative, IsNegative(a))
-
-	if overflow && sum < 0x80 {
-		overflow = false
-	}
-	o.SetStatus(Overflow, overflow)
-	o.SetStatus(Zero, a == 0)
-	o.SetStatus(Carry, sum >= 0x100)
-
-	o.A = a
-	return a
+	sum := uint16(a) + uint16(operand) + carry
+	result := byte(sum)
+	o.SetStatus(Negative, IsNegative(result))
+	o.SetStatus(Overflow, (^(a^operand)&(a^result)&0x80) != 0)
+	o.SetStatus(Zero, result == 0)
+	o.SetStatus(Carry, sum > 0xff)
+	o.A = result
+	return result
 }
 
 func (o *CPU) SBC(operand uint8) uint8 {
