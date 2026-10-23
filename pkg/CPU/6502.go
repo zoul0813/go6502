@@ -1329,8 +1329,6 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		// set decimal
 		o.Log("I SED ")
 		o.SetStatus(Decimal, true)
-		o.Log("Not yet implemented ... ")
-		o.SetStatus(Decimal, true)
 
 	// Bit Shift Instructions
 	case ROL:
@@ -1888,6 +1886,9 @@ func (o *CPU) IndirectY(io IO.Memory) (uint16, error) {
  * Math
  */
 
+// Decimal flag behavior follows the NMOS 6502 used by the Apple 1:
+// Z uses the binary result; ADC N/V use the intermediate decimal sum,
+// while SBC N/V use the binary difference (unlike the 65C02).
 func (o *CPU) ADC(operand uint8) uint8 {
 	a := o.A
 	carry := uint16(0)
@@ -1895,17 +1896,49 @@ func (o *CPU) ADC(operand uint8) uint8 {
 		carry = 1
 	}
 	sum := uint16(a) + uint16(operand) + carry
-	result := byte(sum)
-	o.SetStatus(Negative, IsNegative(result))
-	o.SetStatus(Overflow, (^(a^operand)&(a^result)&0x80) != 0)
-	o.SetStatus(Zero, result == 0)
+	o.SetStatus(Zero, byte(sum) == 0)
+	if BitTest(Decimal, o.Status) {
+		low := uint16(a&0x0f) + uint16(operand&0x0f) + carry
+		if low > 9 {
+			low = ((low + 6) & 0x0f) | 0x10
+		}
+		sum = uint16(a&0xf0) + uint16(operand&0xf0) + low
+	}
+	o.SetStatus(Negative, IsNegative(byte(sum)))
+	o.SetStatus(Overflow, (^(a^operand)&(a^byte(sum))&0x80) != 0)
+	if BitTest(Decimal, o.Status) && sum >= 0xa0 {
+		sum += 0x60
+	}
 	o.SetStatus(Carry, sum > 0xff)
-	o.A = result
-	return result
+	o.A = byte(sum)
+	return o.A
 }
 
 func (o *CPU) SBC(operand uint8) uint8 {
-	return o.ADC(^operand)
+	if !BitTest(Decimal, o.Status) {
+		return o.ADC(^operand)
+	}
+	a := o.A
+	borrow := 1
+	if BitTest(Carry, o.Status) {
+		borrow = 0
+	}
+	difference := int(a) - int(operand) - borrow
+	result := byte(difference)
+	o.SetStatus(Zero, result == 0)
+	o.SetStatus(Negative, IsNegative(result))
+	o.SetStatus(Overflow, ((a^operand)&(a^result)&0x80) != 0)
+	o.SetStatus(Carry, difference >= 0)
+	low := int(a&0x0f) - int(operand&0x0f) - borrow
+	if low < 0 {
+		low = ((low - 6) & 0x0f) - 0x10
+	}
+	decimal := int(a&0xf0) - int(operand&0xf0) + low
+	if decimal < 0 {
+		decimal -= 0x60
+	}
+	o.A = byte(decimal)
+	return o.A
 }
 
 func (o *CPU) Branch(rel uint8, cond bool) {
