@@ -954,16 +954,10 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		b, _ := io.Get(addr)
 		o.Log("%02x (ZP) %02x", addr, b)
 		v := b + 1
-		err := io.Set(addr, v)
-		fmt.Printf(" %02x %04x", v, addr)
-		t, _ := io.Get(addr)
-		fmt.Printf(" %02x", t)
-		if err != nil {
-			fmt.Printf(" %s", err)
-		}
+		io.Set(addr, v)
 
-		o.SetStatus(Zero, b == 0)
-		o.SetStatus(Negative, IsNegative(b))
+		o.SetStatus(Zero, v == 0)
+		o.SetStatus(Negative, IsNegative(v))
 	case INC_ZPX:
 		// increment zero page, x
 		o.Log("I: INC ")
@@ -1361,8 +1355,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case ROL_ZPX:
 		// rotate left, zerp page, x
@@ -1379,8 +1373,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case ROL_A:
 		// rotate left, absolute
@@ -1397,8 +1391,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case ROL_AX:
 		// rotate left, absolute, x
@@ -1415,8 +1409,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case ROR:
 		// rotate left, a
@@ -1449,8 +1443,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b0)
 	case ROR_ZPX:
 		// rotate left, zerp page, x
@@ -1467,8 +1461,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b0)
 	case ROR_A:
 		// rotate left, absolute
@@ -1484,8 +1478,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b0)
 	case ROR_AX:
 		// rotate left, absolute, x
@@ -1502,8 +1496,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		}
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b0)
 	case ASL:
 		// arithmetic shift left, a
@@ -1542,8 +1536,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		v := b << 1
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case ASL_A:
 		// arithmetic shift left, absolute
@@ -1556,8 +1550,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		v := b << 1
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case ASL_AX:
 		// arithmetic shift left, absolute, x
@@ -1570,8 +1564,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		v := b << 1
 		io.Set(addr, v)
 
-		o.SetStatus(Negative, IsNegative(o.A))
-		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(v))
+		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Carry, b7)
 	case LSR:
 		// logical shift right, a
@@ -1592,7 +1586,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		b, _ := io.Get(addr)
 		o.Log("%02x (ZP)", addr)
 
-		carry := BitTest(Bit1, b)
+		carry := BitTest(Bit0, b)
 		b = b >> 1
 		io.Set(addr, b)
 
@@ -1606,7 +1600,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		b, _ := io.Get(addr)
 		o.Log("%02x (ZP, X)", addr)
 
-		carry := BitTest(Bit1, b)
+		carry := BitTest(Bit0, b)
 		b = b >> 1
 		io.Set(addr, b)
 
@@ -1620,7 +1614,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		b, _ := io.Get(addr)
 		o.Log("%04x (ABS)", addr)
 
-		carry := BitTest(Bit1, b)
+		carry := BitTest(Bit0, b)
 		b = b >> 1
 		io.Set(addr, b)
 
@@ -1634,7 +1628,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		b, _ := io.Get(addr)
 		o.Log("%04x (ABS, X)", addr)
 
-		carry := BitTest(Bit1, b)
+		carry := BitTest(Bit0, b)
 		b = b >> 1
 		io.Set(addr, b)
 
@@ -1651,7 +1645,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		a := o.A
 		v := a & b
 
-		o.SetStatus(Overflow, IsOverflow(b, v))
+		o.SetStatus(Overflow, BitTest(Overflow, b))
 		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Negative, IsNegative(b))
 	case BIT_A:
@@ -1664,7 +1658,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		a := o.A
 		v := a & b
 
-		o.SetStatus(Overflow, IsOverflow(b, v))
+		o.SetStatus(Overflow, BitTest(Overflow, b))
 		o.SetStatus(Zero, v == 0)
 		o.SetStatus(Negative, IsNegative(b))
 
@@ -1690,6 +1684,8 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.SP++
 		a, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.A = a
+		o.SetStatus(Zero, o.A == 0)
+		o.SetStatus(Negative, IsNegative(o.A))
 	case PHP:
 		// push status to stack
 		o.Log("I: PHP ")
