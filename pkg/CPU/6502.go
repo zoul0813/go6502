@@ -173,7 +173,7 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Log("(Implied)")
 		o.SP++
 		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
-		o.Status = status
+		o.Status = (status &^ B) | Reserved
 		o.SP++
 		lo, _ := io.Get(STACK_HEAD + uint16(o.SP))
 		o.SP++
@@ -239,11 +239,22 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 		o.Branch(rel, zero)
 
 	// Misc
-	case BRK: // TODO: NMI
-		// break
+	case BRK:
 		o.Log("I: BRK ")
-		// TODO: non-maskable interrupt
-		o.PC += 2
+		// BRK consumes a padding byte. Save PC+2 and status before setting I.
+		o.PC++
+		for _, value := range []byte{byte(o.PC >> 8), byte(o.PC), o.Status | B | Reserved} {
+			if err := io.Set(STACK_HEAD+uint16(o.SP), value); err != nil {
+				return false, err
+			}
+			o.SP--
+		}
+		o.SetStatus(Interrupt, true)
+		vector, err := io.GetWord(0xfffe)
+		if err != nil {
+			return false, err
+		}
+		o.PC = vector
 	case NOP:
 		o.Log("I: NOP")
 
@@ -1684,14 +1695,14 @@ func (o *CPU) Step(io IO.Memory) (bool, error) {
 	case PHP:
 		// push status to stack
 		o.Log("I: PHP ")
-		io.Set(STACK_HEAD+uint16(o.SP), o.Status)
+		io.Set(STACK_HEAD+uint16(o.SP), o.Status|B|Reserved)
 		o.SP--
 	case PLP:
 		// pull status from stack
 		o.Log("I: PLP ")
 		o.SP++
 		status, _ := io.Get(STACK_HEAD + uint16(o.SP))
-		o.Status = status
+		o.Status = (status &^ B) | Reserved
 
 	case DEBUG:
 		o.Log("I: DEBUG ")
